@@ -1,0 +1,23 @@
+tables:
+  - name: epc_non_domestic_scotland
+    display_name: EPC Non-Domestic Scotland
+    raw_table: LH_external_datasets.epc.epcNonDomesticScotland
+    embedding_table: LH_external_datasets.embedding.epcNonDomesticScotlandVE
+    collection: epc_non_domestic_scotland
+    faiss_columns: [BUILDING_REFERENCE_NUMBER,POSTCODE, PROPERTY_TYPE, MAIN_HEATING_FUEL, LODGEMENT_DATE, CURRENT_ENERGY_PERFORMANCE_BAND, CURRENT_ENERGY_PERFORMANCE_RATING, PRIMARY_ENERGY_VALUE, BUILDING_EMISSIONS, FLOOR_AREA]
+    qdrant_columns: [BUILDING_REFERENCE_NUMBER, POSTCODE, PROPERTY_TYPE, MAIN_HEATING_FUEL, LODGEMENT_DATE, CURRENT_ENERGY_PERFORMANCE_BAND, CURRENT_ENERGY_PERFORMANCE_RATING, PRIMARY_ENERGY_VALUE, BUILDING_EMISSIONS, FLOOR_AREA]
+  - name: epc_domestic_scotland
+    display_name: EPC Domestic Scotland
+    raw_table: LH_external_datasets.epc.epcDomesticScotland
+    embedding_table: LH_external_datasets.embedding.epcDomesticScotlandVE
+    collection: epc_domestic_scotland
+    faiss_columns: [building_reference_number, postcode_trim, property_type, main_fuel, lodgement_date, current_energy_efficiency, current_energy_rating, total_floor_area]
+    qdrant_columns: [building_reference_number, postcode_trim, property_type, main_fuel, lodgement_date, current_energy_efficiency, current_energy_rating, total_floor_area]
+relationships:
+  - tables: [epc_non_domestic_scotland, epc_domestic_scotland]
+    faiss_keys:
+      epc_non_domestic_scotland: [BU]
+      epc_domestic_scotland: [POSTCODE, PROPERTY_TYPE, MAIN_HEATING_FUEL]
+    qdrant_keys:
+      epc_non_domestic_scotland: [postcode, propertyType, mainHeatingFuel]
+      epc_domestic_scotland: [postcode, propertyType, mainHeatingFuel] 

@@ -1,0 +1,3 @@
+# ODBC dependencies for SQL Editor functionality
+pyodbc
+sqlalchemy 

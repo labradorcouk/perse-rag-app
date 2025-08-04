@@ -1,0 +1,113 @@
+tables:
+  - name: epcNonDomesticScotland
+    collection: epc_non_domestic_scotland
+    query: |
+      SELECT 
+        raw.*,
+        vec.embedding,
+        CONCAT(
+          CAST(raw.POSTCODE AS VARCHAR(20)), '_', 
+          CAST(raw.PROPERTY_TYPE AS VARCHAR(100)), '_', 
+          CAST(raw.MAIN_HEATING_FUEL AS VARCHAR(100))
+        ) AS unique_id
+      FROM 
+        LH_external_datasets.embedding.epcNonDomesticScotlandVE AS vec
+      JOIN 
+        LH_external_datasets.epc.epcNonDomesticScotland AS raw 
+      ON 
+        vec.BUILDING_REFERENCE_NUMBER = raw.BUILDING_REFERENCE_NUMBER AND
+        vec.INSPECTION_DATE = raw.INSPECTION_DATE AND
+        vec.CREATED_AT = raw.CREATED_AT AND
+        vec.OSG_REFERENCE_NUMBER = raw.OSG_REFERENCE_NUMBER AND
+        vec.LODGEMENT_DATE = raw.LODGEMENT_DATE AND  
+        vec.POSTCODE = raw.POSTCODE AND 
+        vec.PROPERTY_TYPE = raw.PROPERTY_TYPE AND 
+        vec.MAIN_HEATING_FUEL = raw.MAIN_HEATING_FUEL
+    id_column: unique_id
+    batch_size: 1000
+    filters:
+      - column: LODGEMENT_DATE
+        op: ">="
+        value: "1000-01-01" 
+  - name: epcDomesticScotland
+    collection: epc_domestic_scotland
+    query: |
+      SELECT 
+        raw.*,
+        vec.embedding,
+        CONCAT(
+          CAST(raw.building_reference_number AS VARCHAR(20)), '_', 
+          CAST(raw.inspection_date AS VARCHAR(20)), '_', 
+          CAST(raw.created_at AS VARCHAR(20)), '_', 
+          CAST(raw.osg_reference_number AS VARCHAR(20)), '_', 
+          CAST(raw.lodgement_date AS VARCHAR(20)), '_', 
+          CAST(raw.postcode AS VARCHAR(20)), '_', 
+          CAST(raw.property_type AS VARCHAR(20)), '_', 
+          CAST(raw.main_fuel AS VARCHAR(20)), '_', 
+          CAST(raw.postcode_trim AS VARCHAR(100))
+        ) AS unique_id
+      FROM 
+        LH_external_datasets.embedding.epcDomesticScotlandVE AS vec
+      JOIN 
+        LH_external_datasets.epc.epcDomesticScotland AS raw 
+      ON 
+        vec.building_reference_number = raw.building_reference_number AND
+        vec.postcode_trim = raw.postcode_trim
+    id_column: unique_id
+    batch_size: 1000
+    filters:
+      - column: lodgement_date
+        op: ">="
+        value: "1000-01-01" 
+  - name: v_edition_18_joined
+    collection: verisk_edition_18
+    query: |
+      SELECT 
+        raw.*,
+        vec.embedding,
+        CONCAT(
+          CAST(raw.uprn_link AS VARCHAR(20)), '_', 
+          CAST(raw.verisk_premise_id AS VARCHAR(20)), '_', 
+          CAST(raw.verisk_building_id AS VARCHAR(100))
+        ) AS unique_id
+      FROM 
+        LH_external_datasets.embedding.v_edition_18_joined AS vec
+      JOIN 
+        LH_external_datasets.verisk.v_edition_18_joined AS raw 
+      ON 
+        vec.uprn_link = raw.uprn_link AND
+        vec.verisk_premise_id = raw.verisk_premise_id AND
+        vec.verisk_building_id = raw.verisk_building_id
+    id_column: unique_id
+    batch_size: 1000
+  - name: bev
+    collection: bev
+    query: |
+      SELECT 
+        raw.*,
+        vec.embedding,
+        raw.Vehicle_ID AS unique_id
+      FROM 
+        LH_external_datasets.embedding.bevVE AS vec
+      JOIN 
+        LH_external_datasets.ev.bev AS raw 
+      ON 
+        vec.Vehicle_ID = raw.Vehicle_ID
+    id_column: unique_id
+    batch_size: 1000
+  - name: phev
+    collection: phev
+    query: |
+      SELECT 
+        raw.*,
+        vec.embedding,
+        raw.Vehicle_ID AS unique_id
+      FROM 
+        LH_external_datasets.embedding.phevVE AS vec
+      JOIN 
+        LH_external_datasets.ev.phev AS raw 
+      ON 
+        vec.Vehicle_ID = raw.Vehicle_ID
+    id_column: unique_id
+    batch_size: 1000
+

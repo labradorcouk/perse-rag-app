@@ -1,0 +1,48 @@
+# Model training configuration for grounded_fine_tune.py
+
+# List of tables to include in training
+# Each table can have relationships to other tables
+# and SQL queries for QA pairs, embeddings, and raw data
+
+tables:
+  - name: epcDomesticEngWales
+    schema: config/table_schemas.py
+    relationships:
+      - type: join
+        from: epcDomesticEngWales.lmk_key
+        to: epcDomesticEngWalesRec.lmk_key
+    qa_query: |
+      SELECT * FROM LH_external_datasets.ragQA.epcDomesticEngWalesQA
+    embedding_query: |
+      SELECT * FROM LH_external_datasets.embedding.epcDomesticEngWalesVE
+    raw_query: |
+      SELECT * FROM LH_external_datasets.epc.epcDomesticEngWales
+  - name: epcDomesticScotland
+    schema: config/table_schemas.py
+    qa_query: |
+      SELECT * FROM LH_external_datasets.ragQA.epcDomesticScotlandQA
+    embedding_query: |
+      SELECT * FROM LH_external_datasets.embedding.epcDomesticScotlandVE
+    raw_query: |
+      SELECT * FROM LH_external_datasets.epc.epcDomesticScotland
+  - name: v_edition_18_joined
+    schema: config/table_schemas.py
+    qa_query: |
+      SELECT * FROM LH_external_datasets.ragQA.v_edition_18_joinedQA
+    embedding_query: |
+      SELECT * FROM LH_external_datasets.embedding.v_edition_18_joinedVE
+    raw_query: |
+      SELECT * FROM LH_external_datasets.verisk.v_edition_18_joined
+
+# Used data tracker file (JSON)
+used_data_tracker: data/used_data_tracker.json
+
+# Model output directory
+output_dir: models/grounded_model
+
+# Base model for fine-tuning
+base_model: sentence-transformers/all-MiniLM-L6-v2
+
+# Training parameters
+batch_size: 8
+epochs: 3 
