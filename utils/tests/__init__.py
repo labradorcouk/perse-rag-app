@@ -29,6 +29,7 @@ from . import test_qdrant_app_issue
 from . import test_qdrant_connection
 from . import test_date_filter_handling
 from . import test_pyodbc_conn
+from . import test_syntax_error_correction
 
 __all__ = [
     'test_simple_fix',
@@ -51,4 +52,5 @@ __all__ = [
     'test_qdrant_connection',
     'test_date_filter_handling',
     'test_pyodbc_conn',
+    'test_syntax_error_correction',
 ] 

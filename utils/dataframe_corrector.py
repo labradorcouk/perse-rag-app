@@ -88,6 +88,22 @@ class DataFrameCorrector:
         """
         return self.enhanced_corrector.fix_code_with_context(code, user_query, available_dataframes)
     
+    def validate_and_test_code(self, code: str, available_dataframes: Dict[str, Any] = None) -> Tuple[bool, List[str], str]:
+        """
+        Validate the corrected code and test if it can be executed safely.
+        
+        Returns:
+            Tuple of (is_valid, warnings, error_message)
+        """
+        return self.enhanced_corrector.validate_and_test_code(code, available_dataframes)
+    
+    def fix_syntax_errors(self, code: str) -> Tuple[str, List[str]]:
+        """
+        Dynamically fix common syntax errors in the code.
+        This is non-aggressive and only fixes obvious syntax issues.
+        """
+        return self.enhanced_corrector._fix_syntax_errors(code)
+    
     # Legacy methods for backward compatibility
     def correct_dataframe_names_legacy(self, code: str, available_dataframes: Dict[str, Any] = None) -> Tuple[str, List[str]]:
         """

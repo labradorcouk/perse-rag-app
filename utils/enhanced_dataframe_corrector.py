@@ -19,6 +19,37 @@ class EnhancedDataFrameCorrector:
             'print', 'type', 'isinstance', 'bool', 'tuple', 'reversed', 'filter', 
             'map', 'next', 'iter', 'slice', 'object'
         }
+        
+        # Common syntax error patterns and their fixes
+        self.syntax_error_patterns = {
+            # Incomplete method calls
+            r'\.idx\s*$': '.idxmax()',  # Fix incomplete idxmax()
+            r'\.idxmin\s*$': '.idxmin()',  # Fix incomplete idxmin()
+            r'\.max\s*$': '.max()',  # Fix incomplete max()
+            r'\.min\s*$': '.min()',  # Fix incomplete min()
+            r'\.mean\s*$': '.mean()',  # Fix incomplete mean()
+            r'\.sum\s*$': '.sum()',  # Fix incomplete sum()
+            r'\.count\s*$': '.count()',  # Fix incomplete count()
+            
+            # Missing parentheses in function calls
+            r'\.loc\[([^\]]+)\]\s*$': r'.loc[\1]',  # Fix incomplete loc access
+            r'\.iloc\[([^\]]+)\]\s*$': r'.iloc[\1]',  # Fix incomplete iloc access
+            
+            # Incomplete string operations
+            r'\.strip\s*$': '.strip()',  # Fix incomplete strip()
+            r'\.lower\s*$': '.lower()',  # Fix incomplete lower()
+            r'\.upper\s*$': '.upper()',  # Fix incomplete upper()
+            
+            # Incomplete DataFrame operations
+            r'\.groupby\s*$': '.groupby()',  # Fix incomplete groupby()
+            r'\.reset_index\s*$': '.reset_index()',  # Fix incomplete reset_index()
+            r'\.drop\s*$': '.drop()',  # Fix incomplete drop()
+            r'\.rename\s*$': '.rename()',  # Fix incomplete rename()
+            
+            # Missing closing brackets/parentheses
+            r'\[([^\]]*)\s*$': r'[\1]',  # Fix missing closing bracket
+            r'\(([^)]*)\s*$': r'(\1)',  # Fix missing closing parenthesis
+        }
     
     def correct_dataframe_names(self, code: str, available_dataframes: Dict[str, Any] = None) -> Tuple[str, List[str]]:
         """
@@ -27,8 +58,11 @@ class EnhancedDataFrameCorrector:
         if available_dataframes:
             self.intelligent_fixer.available_dataframes = available_dataframes
         
-        # First, apply traditional pattern-based corrections for DataFrame references only
-        corrected_code, pattern_fixes = self._apply_pattern_corrections(code, available_dataframes)
+        # First, apply syntax error corrections
+        corrected_code, syntax_fixes = self._fix_syntax_errors(code)
+        
+        # Then apply traditional pattern-based corrections for DataFrame references only
+        corrected_code, pattern_fixes = self._apply_pattern_corrections(corrected_code, available_dataframes)
         
         # Then use the intelligent fixer only for complex DataFrame issues (not column names)
         intelligent_fixes = []
@@ -44,9 +78,38 @@ class EnhancedDataFrameCorrector:
                 break  # Only fix DataFrame issues, not column issues
         
         # Combine all fixes
-        all_fixes = pattern_fixes + intelligent_fixes
+        all_fixes = syntax_fixes + pattern_fixes + intelligent_fixes
         
         return corrected_code, all_fixes
+    
+    def _fix_syntax_errors(self, code: str) -> Tuple[str, List[str]]:
+        """
+        Dynamically fix common syntax errors in the code.
+        This is non-aggressive and only fixes obvious syntax issues.
+        """
+        fixes = []
+        corrected_code = code
+        
+        # Split code into lines to process each line separately
+        lines = corrected_code.split('\n')
+        corrected_lines = []
+        
+        for i, line in enumerate(lines):
+            original_line = line
+            corrected_line = line
+            
+            # Apply syntax error patterns to each line
+            for pattern, replacement in self.syntax_error_patterns.items():
+                if re.search(pattern, corrected_line):
+                    corrected_line = re.sub(pattern, replacement, corrected_line)
+                    if corrected_line != original_line:
+                        fixes.append(f"Fixed syntax error on line {i+1}: {original_line.strip()} → {corrected_line.strip()}")
+            
+            corrected_lines.append(corrected_line)
+        
+        corrected_code = '\n'.join(corrected_lines)
+        
+        return corrected_code, fixes
     
     def _apply_pattern_corrections(self, code: str, available_dataframes: Dict[str, Any] = None) -> Tuple[str, List[str]]:
         """
@@ -251,6 +314,40 @@ class EnhancedDataFrameCorrector:
         
         return intelligent_suggestions + df_suggestions
     
+    def validate_and_test_code(self, code: str, available_dataframes: Dict[str, Any] = None) -> Tuple[bool, List[str], str]:
+        """
+        Validate the corrected code and test if it can be executed safely.
+        
+        Returns:
+            Tuple of (is_valid, warnings, error_message)
+        """
+        warnings = []
+        error_message = ""
+        
+        try:
+            # Basic syntax check
+            compile(code, '<string>', 'exec')
+            
+            # Check for common issues that might cause runtime errors
+            if 'idxmax()' in code and 'groupby' in code:
+                # Check if groupby result is properly handled
+                if '.idxmax()' in code and not any(pattern in code for pattern in ['.reset_index()', '.loc[']):
+                    warnings.append("Consider using .reset_index() after groupby operations for better results")
+            
+            if 'loc[' in code and 'idxmax()' in code:
+                # Check if loc access is properly formatted
+                if re.search(r'\.loc\[[^\]]*idxmax\(\)[^\]]*\]', code):
+                    warnings.append("Make sure to use .loc[] properly with idxmax() results")
+            
+            return True, warnings, error_message
+            
+        except SyntaxError as e:
+            error_message = f"Syntax error: {str(e)}"
+            return False, warnings, error_message
+        except Exception as e:
+            error_message = f"Code validation error: {str(e)}"
+            return False, warnings, error_message
+    
     def fix_code_with_context(self, code: str, user_query: str, available_dataframes: Dict[str, Any] = None) -> Tuple[str, List[str], Dict[str, Any]]:
         """
         Fix code with full context including user query and available DataFrames.
@@ -269,6 +366,24 @@ class EnhancedDataFrameCorrector:
         # Apply additional context-aware fixes
         context_fixed_code, context_fixes = self._apply_context_aware_fixes(fixed_code, context, available_dataframes)
         fixes.extend(context_fixes)
+        
+        # Validate the final code
+        is_valid, warnings, error_message = self.validate_and_test_code(context_fixed_code, available_dataframes)
+        
+        if not is_valid:
+            # If validation fails, try to fix syntax errors
+            syntax_fixed_code, syntax_fixes = self._fix_syntax_errors(context_fixed_code)
+            fixes.extend(syntax_fixes)
+            
+            # Re-validate after syntax fixes
+            is_valid, warnings, error_message = self.validate_and_test_code(syntax_fixed_code, available_dataframes)
+            
+            if is_valid:
+                context_fixed_code = syntax_fixed_code
+            else:
+                # Add the error message to context for debugging
+                context['validation_error'] = error_message
+                context['validation_warnings'] = warnings
         
         return context_fixed_code, fixes, context
     
