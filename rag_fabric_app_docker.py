@@ -381,7 +381,7 @@ if is_authenticated:
         
         vector_search_engine = st.radio(
             "Select Vector Search Engine",
-            ("FAISS", "Qdrant"),
+            ("FAISS", "Qdrant", "MongoDB"),
             index=0,
             key="vector_search_engine_select",
             help="Choose the backend for semantic search."
@@ -765,6 +765,160 @@ if is_authenticated:
                             st.info(context_info)
                         else:
                             st.warning("No context data available from Qdrant search. Will proceed with auto-fetch.")
+                            df1_context = None
+
+                    elif vector_search_engine == "MongoDB":
+                        st.info("Executing MongoDB path...")
+                        status_placeholder.info("Step 2: Initializing MongoDB Atlas and performing search...")
+                        dfs = {}
+                        
+                        # Debug: Check environment variables
+                        st.info(f"🔍 Debug: MONGODB_URI = {os.getenv('MONGODB_URI', 'Not set')}")
+                        st.info(f"🔍 Debug: MONGODB_DB_NAME = {os.getenv('MONGODB_DB_NAME', 'perse-data-network')}")
+                        st.info(f"🔍 Debug: MONGODB_COLLECTION_NAME = {os.getenv('MONGODB_COLLECTION_NAME', 'addressMatches')}")
+                        
+                        try:
+                            # Import MongoDBIndex only when needed
+                            st.info("🔍 Debug: Importing MongoDBIndex...")
+                            from utils.mongodb_utils import MongoDBIndex
+                            st.success("✅ MongoDBIndex import successful")
+                        except Exception as e:
+                            st.error(f"❌ MongoDBIndex import failed: {str(e)}")
+                            st.error(f"Error type: {type(e).__name__}")
+                            st.stop()
+                        
+                        # Process each selected table
+                        for table_name in selected_tables:
+                            table_meta = TABLES_META[table_name]
+                            st.info(f"🔍 Debug: Processing table {table_name}")
+                            st.info(f"🔍 Debug: Table meta = {table_meta}")
+                            
+                            try:
+                                # Use table name as collection name for MongoDB
+                                collection_name = table_meta.get('collection', table_name)
+                                st.info(f"Connecting to MongoDB collection: {collection_name}")
+                                
+                                # Test MongoDB connection
+                                st.info("🔍 Debug: Testing MongoDB connection...")
+                                mongodb_index = MongoDBIndex(
+                                    collection_name=collection_name,
+                                    embedding_model=model
+                                )
+                                
+                                # Test connection
+                                if mongodb_index.test_connection():
+                                    st.success(f"✅ MongoDB connection successful for collection: {collection_name}")
+                                else:
+                                    st.error(f"❌ MongoDB connection failed for collection: {collection_name}")
+                                    continue
+                                
+                                # Get collection info
+                                collection_info = mongodb_index.get_collection_info()
+                                st.info(f"Collection info: {collection_info}")
+                                
+                                st.info("🔍 Debug: Performing search...")
+                                search_results = mongodb_index.search(
+                                    user_question,
+                                    limit=top_n,
+                                    score_threshold=0.01
+                                )
+                                st.success(f"✅ Search successful: {len(search_results)} results")
+                                
+                                if not search_results:
+                                    st.warning(f"No relevant documents found in MongoDB for {table_meta['display_name']}.")
+                                    continue
+                                
+                                status_placeholder.info(f"Building context from MongoDB search results for {table_meta['display_name']}...")
+                                
+                                # Convert search results to DataFrame
+                                # MongoDB results contain 'payload' which is the document content
+                                documents = []
+                                for result in search_results:
+                                    # Parse the payload (assuming it's JSON or structured data)
+                                    try:
+                                        import json
+                                        if isinstance(result['payload'], str):
+                                            doc_data = json.loads(result['payload'])
+                                        else:
+                                            doc_data = result['payload']
+                                        
+                                        # Add metadata
+                                        doc_data['_score'] = result.get('score', 0)
+                                        doc_data['_metadata'] = result.get('metadata', {})
+                                        documents.append(doc_data)
+                                    except Exception as e:
+                                        st.warning(f"Could not parse document: {e}")
+                                        continue
+                                
+                                if documents:
+                                    df_context = pd.DataFrame(documents)
+                                    
+                                    # Debug: Show available columns
+                                    st.info(f"Available columns in {table_meta['display_name']}: {list(df_context.columns)}")
+                                    
+                                    # Only keep columns defined for MongoDB for this table (if specified)
+                                    mongodb_columns = table_meta.get('mongodb_columns', table_meta.get('qdrant_columns', []))
+                                    if mongodb_columns:
+                                        available_mongodb_columns = [col for col in mongodb_columns if col in df_context.columns]
+                                        if available_mongodb_columns:
+                                            df_context = df_context[available_mongodb_columns]
+                                        else:
+                                            st.warning(f"No matching columns found for {table_meta['display_name']}. Using all available columns.")
+                                    else:
+                                        st.info(f"No specific MongoDB columns defined for {table_meta['display_name']}. Using all available columns.")
+                                    
+                                    # Performance optimization: Cache DataFrame
+                                    cache_key = f"mongodb_{table_name}_{user_question[:50]}"
+                                    performance_optimizer.cache_dataframe(cache_key, df_context, ttl=1800)  # 30 minutes
+                                    
+                                    dfs[table_name] = df_context
+                                    st.success(f"✅ Successfully processed {table_meta['display_name']}")
+                                else:
+                                    st.warning(f"No valid documents found in MongoDB for {table_meta['display_name']}.")
+                                    continue
+                                
+                            except Exception as e:
+                                # Log the error
+                                diagnostics_logger.log_error(
+                                    component="MongoDB_Search",
+                                    error=e,
+                                    context={
+                                        'table_name': table_name,
+                                        'vector_search_engine': vector_search_engine,
+                                        'user_question': user_question
+                                    }
+                                )
+                                
+                                # Show the actual error instead of generic message
+                                st.error(f"❌ Error searching MongoDB for {table_meta['display_name']}: {str(e)}")
+                                st.error(f"❌ Error type: {type(e).__name__}")
+                                st.error(f"❌ Full error details: {e}")
+                                
+                                # Show connection-related suggestions if it's actually a connection error
+                                if "Connection" in str(e) or "Authentication" in str(e):
+                                    st.warning("MongoDB connection failed. Possible solutions:")
+                                    st.info("1. Check MONGODB_URI environment variable")
+                                    st.info("2. Verify MongoDB Atlas credentials")
+                                    st.info("3. Use FAISS instead: Select 'FAISS' as vector search engine")
+                                    st.info("4. Use Qdrant instead: Select 'Qdrant' as vector search engine")
+                                else:
+                                    st.warning("MongoDB search failed. Possible solutions:")
+                                    st.info("1. Use FAISS instead: Select 'FAISS' as vector search engine")
+                                    st.info("2. Use Qdrant instead: Select 'Qdrant' as vector search engine")
+                                    st.info("3. Check the collection configuration")
+                                continue
+                        
+                        # Debug: Show what we're trying to join
+                        st.info(f"DataFrames to join: {list(dfs.keys())}")
+                        for name, df in dfs.items():
+                            st.info(f"{name} columns: {list(df.columns)}")
+                        
+                        df1_context = join_dataframes(dfs, RAG_TABLES_CONFIG.get('relationships', []), backend='mongodb')
+                        if df1_context is not None and not df1_context.empty:
+                            context_info = f"Using top {len(df1_context)} semantically relevant rows for context in df1 (via MongoDB, {', '.join(selected_tables)})."
+                            st.info(context_info)
+                        else:
+                            st.warning("No context data available from MongoDB search. Will proceed with auto-fetch.")
                             df1_context = None
 
                 except Exception as e:

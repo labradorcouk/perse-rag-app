@@ -48,15 +48,20 @@ RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements_verisk.txt \
     && rm -rf ~/.cache/pip
 
-# Pre-download and cache models with optimization
+# Pre-download and cache models with optimization (optional - skip if fails)
 RUN python -c "\
 import os; \
 os.environ['TRANSFORMERS_CACHE'] = '/app/models'; \
 os.environ['HF_HOME'] = '/app/models'; \
-from sentence_transformers import SentenceTransformer; \
-print('Pre-downloading embedding models...'); \
-model = SentenceTransformer('all-MiniLM-L6-v2'); \
-print('Embedding model cached successfully')"
+try: \
+    from sentence_transformers import SentenceTransformer; \
+    print('Pre-downloading embedding models...'); \
+    model = SentenceTransformer('all-MiniLM-L6-v2'); \
+    print('Embedding model cached successfully'); \
+except Exception as e: \
+    print(f'Warning: Could not pre-download models: {e}'); \
+    print('Models will be downloaded on first use'); \
+    pass" || (echo "Model pre-downloading failed, continuing with build..." && exit 0)
 
 # Copy application files
 COPY . .

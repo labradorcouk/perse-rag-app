@@ -30,6 +30,7 @@ from . import test_qdrant_connection
 from . import test_date_filter_handling
 from . import test_pyodbc_conn
 from . import test_syntax_error_correction
+from . import test_mongodb_integration
 
 __all__ = [
     'test_simple_fix',
@@ -53,4 +54,5 @@ __all__ = [
     'test_date_filter_handling',
     'test_pyodbc_conn',
     'test_syntax_error_correction',
+    'test_mongodb_integration',
 ] 
