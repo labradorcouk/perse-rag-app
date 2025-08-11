@@ -1,0 +1,216 @@
+# MongoDB Schema Configuration
+# This file defines the structure and optimization settings for MongoDB collections
+# to prevent parsing issues and optimize token usage in RAG applications
+
+mongodb_collections:
+  ecoesTechDetailsWithEmbedding:
+    display_name: "ECoes Tech Details with Embedding"
+    description: "MPAN and technical details with vector embeddings"
+    
+    # Business context and use cases
+    business_context:
+      domain: "Energy and Utilities"
+      purpose: "MPAN (Meter Point Administration Number) management and technical validation"
+      common_queries: [
+        "Find MPAN records with specific errors",
+        "Analyze error patterns in MPAN data",
+        "Identify common technical issues",
+        "Find records by postcode or location",
+        "Analyze MPAN validation failures"
+      ]
+      key_entities: ["MPAN", "meter", "supplier", "postcode", "error"]
+    
+    # Data dictionary with semantic descriptions
+    data_dictionary:
+      _id_oid:
+        type: "string"
+        description: "MongoDB Object ID as string"
+        business_meaning: "Unique identifier for each MPAN record"
+        include_in_context: true
+        max_length: 50
+        search_relevance: "low"  # Not useful for business queries
+        
+      type:
+        type: "string"
+        description: "Record type (e.g., MPAN, error type)"
+        business_meaning: "The type of record or error being reported"
+        include_in_context: true
+        max_length: 100
+        search_relevance: "high"
+        semantic_keywords: ["MPAN", "error", "validation", "record type", "issue type"]
+        example_values: ["MPAN", "validation_error", "system_error", "data_error"]
+        
+      value:
+        type: "string"
+        description: "Primary value (e.g., MPAN number)"
+        business_meaning: "The actual MPAN number or error code value"
+        include_in_context: true
+        max_length: 100
+        search_relevance: "high"
+        semantic_keywords: ["MPAN number", "meter number", "error code", "identifier"]
+        validation_pattern: "MPAN numbers are typically 13 digits"
+        
+      Results:
+        type: "complex"
+        description: "Complex nested results structure containing detailed MPAN information"
+        business_meaning: "Detailed technical results including meter details, address, supplier info, and validation results"
+        include_in_context: false  # Exclude from context due to size
+        max_length: 50  # If included, limit to 50 chars
+        search_relevance: "medium"
+        semantic_keywords: ["meter details", "address", "supplier", "validation results", "technical data"]
+        contains_fields: ["mpan_core", "postcode", "supplier_mpid", "meter_serial_number", "error_details"]
+        
+      embedding:
+        type: "vector"
+        description: "Vector embedding for similarity search"
+        business_meaning: "Mathematical representation for semantic search and similarity matching"
+        include_in_context: false  # Never include in context
+        search_relevance: "high"  # Critical for vector search
+        
+      createdAt_date:
+        type: "datetime"
+        description: "Record creation timestamp"
+        business_meaning: "When the MPAN record was first created in the system"
+        include_in_context: false
+        search_relevance: "medium"
+        semantic_keywords: ["creation date", "timestamp", "when created", "record age"]
+        
+      updatedAt_date:
+        type: "datetime"
+        description: "Record update timestamp"
+        business_meaning: "When the MPAN record was last updated or modified"
+        include_in_context: false
+        search_relevance: "medium"
+        semantic_keywords: ["last updated", "modification date", "change timestamp"]
+        
+      Header_RequestDate:
+        type: "string"
+        description: "Request date from header"
+        business_meaning: "Date when the MPAN validation request was made"
+        include_in_context: false
+        search_relevance: "low"
+        
+      Header_RequestId:
+        type: "integer"
+        description: "Request ID from header"
+        business_meaning: "Unique identifier for the validation request"
+        include_in_context: false
+        search_relevance: "low"
+        
+      Header_ResponseTime:
+        type: "string"
+        description: "Response time from header"
+        business_meaning: "How long the MPAN validation took to process"
+        include_in_context: false
+        search_relevance: "low"
+        
+      Header_VersionNumber:
+        type: "string"
+        description: "Version number from header"
+        business_meaning: "Version of the validation system used"
+        include_in_context: false
+        search_relevance: "low"
+        
+      salt:
+        type: "string"
+        description: "Salt value for security"
+        business_meaning: "Security hash for data integrity"
+        include_in_context: false
+        search_relevance: "none"
+    
+    # Context optimization settings
+    context_optimization:
+      max_rows: 10
+      essential_columns: ["_id_oid", "type", "value"]
+      exclude_columns: ["embedding", "Results", "salt"]
+      sample_strategy: "random"
+      
+    # Search optimization with semantic awareness
+    search_optimization:
+      vector_search_enabled: true
+      text_search_enabled: true
+      fallback_strategy: "sample_documents"
+      semantic_boost_fields: ["type", "value"]  # Boost these fields in semantic search
+      business_keywords: ["MPAN", "meter", "supplier", "postcode", "error", "validation"]
+      
+    # Data processing
+    data_processing:
+      truncate_long_fields: true
+      max_field_length: 50
+      handle_complex_fields: true
+      
+    # Query understanding and enhancement
+    query_enhancement:
+      enable_semantic_expansion: true
+      business_aliases: {
+        "MPAN": ["meter point", "meter number", "energy meter", "electricity meter"],
+        "error": ["issue", "problem", "failure", "validation error", "technical issue"],
+        "postcode": ["location", "area", "region", "address"],
+        "supplier": ["energy company", "utility provider", "electricity company"]
+      }
+      common_question_patterns: {
+        "find_errors": ["error", "issue", "problem", "failure", "wrong", "invalid"],
+        "analyze_patterns": ["pattern", "trend", "common", "frequent", "analysis"],
+        "location_based": ["postcode", "area", "region", "location", "address"],
+        "supplier_info": ["supplier", "company", "provider", "energy company"]
+      }
+
+  # Template for future collections
+  template_collection:
+    display_name: "Template Collection"
+    description: "Template for new MongoDB collections"
+    
+    business_context:
+      domain: "General Business"
+      purpose: "Template for new collections"
+      common_queries: ["Find records", "Analyze data", "Get statistics"]
+      key_entities: ["record", "data", "information"]
+    
+    data_dictionary:
+      _id:
+        type: "string"
+        description: "MongoDB Object ID"
+        business_meaning: "Unique identifier for each record"
+        include_in_context: false
+        max_length: 50
+        search_relevance: "low"
+        
+      example_field:
+        type: "string"
+        description: "Example field description"
+        business_meaning: "Example business meaning"
+        include_in_context: true
+        max_length: 100
+        search_relevance: "medium"
+        semantic_keywords: ["example", "sample", "data"]
+    
+    context_optimization:
+      max_rows: 10
+      essential_columns: ["example_field"]
+      exclude_columns: ["_id"]
+      sample_strategy: "random"
+      
+    search_optimization:
+      vector_search_enabled: true
+      text_search_enabled: true
+      fallback_strategy: "sample_documents"
+      
+    data_processing:
+      truncate_long_fields: true
+      max_field_length: 50
+      handle_complex_fields: true
+      
+    query_enhancement:
+      enable_semantic_expansion: true
+      business_aliases: {}
+      common_question_patterns: {}
+
+# Global MongoDB settings
+global_settings:
+  default_context_rows: 10
+  default_max_field_length: 50
+  enable_smart_column_selection: true
+  enable_field_truncation: true
+  enable_complex_field_handling: true
+  enable_semantic_search: true
+  enable_query_enhancement: true 

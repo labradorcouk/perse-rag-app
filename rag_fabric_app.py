@@ -676,8 +676,13 @@ with tabs[0]:
             st.info(f"Selected vector search engine: {vector_search_engine}")
             
             try:
-                model = RAGUtils.get_embedding_model(selected_model_path)
-                top_n = 5000
+                model = RAGUtils.get_embedding_model(selected_model_path_tab)
+                
+                # Adjust top_n based on vector search engine
+                if vector_search_engine == "MongoDB":
+                    top_n = 100  # MongoDB Atlas has stricter limits
+                else:
+                    top_n = 5000  # FAISS and Qdrant can handle more
 
                 # Helper: join DataFrames on config relationships
                 def join_dataframes(dfs, relationships, backend):
@@ -928,17 +933,21 @@ with tabs[0]:
                     # Debug: Check environment variables
                     st.info(f"🔍 Debug: MONGODB_URI = {os.getenv('MONGODB_URI', 'Not set')}")
                     st.info(f"🔍 Debug: MONGODB_DB_NAME = {os.getenv('MONGODB_DB_NAME', 'perse-data-network')}")
-                    st.info(f"🔍 Debug: MONGODB_COLLECTION_NAME = {os.getenv('MONGODB_COLLECTION_NAME', 'addressMatches')}")
                     
                     try:
                         # Import MongoDBIndex only when needed
                         st.info("🔍 Debug: Importing MongoDBIndex...")
                         from utils.mongodb_utils import MongoDBIndex
+                        from utils.mongodb_schema_manager import MongoDBSchemaManager
                         st.success("✅ MongoDBIndex import successful")
                     except Exception as e:
                         st.error(f"❌ MongoDBIndex import failed: {str(e)}")
                         st.error(f"Error type: {type(e).__name__}")
                         st.stop()
+                    
+                    # Initialize MongoDB Schema Manager for enhanced contextual awareness
+                    schema_manager = MongoDBSchemaManager()
+                    st.info("✅ MongoDB Schema Manager initialized with contextual awareness")
                     
                     # Process each selected table
                     for table_name in selected_tables:
@@ -947,7 +956,7 @@ with tabs[0]:
                         st.info(f"🔍 Debug: Table meta = {table_meta}")
                         
                         try:
-                            # Use table name as collection name for MongoDB
+                            # Use table name as collection name for MongoDB (as per config)
                             collection_name = table_meta.get('collection', table_name)
                             st.info(f"Connecting to MongoDB collection: {collection_name}")
                             
@@ -963,19 +972,50 @@ with tabs[0]:
                                 st.success(f"✅ MongoDB connection successful for collection: {collection_name}")
                             else:
                                 st.error(f"❌ MongoDB connection failed for collection: {collection_name}")
+                                st.error("Please check your MongoDB URI and network connectivity.")
+                                st.error("You can use FAISS or Qdrant instead by changing the vector search engine.")
                                 continue
                             
                             # Get collection info
-                            collection_info = mongodb_index.get_collection_info()
-                            st.info(f"Collection info: {collection_info}")
+                            try:
+                                collection_info = mongodb_index.get_collection_info()
+                                st.info(f"Collection info: {collection_info}")
+                            except Exception as e:
+                                st.error(f"❌ Failed to get collection info: {str(e)}")
+                                continue
                             
-                            st.info("🔍 Debug: Performing search...")
-                            search_results = mongodb_index.search(
-                                user_question,
-                                limit=top_n,
-                                score_threshold=0.01
-                            )
-                            st.success(f"✅ Search successful: {len(search_results)} results")
+                            # 🚀 ENHANCED: Query Enhancement and Contextual Awareness
+                            st.info("🔍 Debug: Enhancing user query with business context...")
+                            enhanced_query_info = schema_manager.enhance_user_query(collection_name, user_question)
+                            
+                            # Display query enhancement details
+                            if enhanced_query_info['original_query'] != enhanced_query_info['enhanced_query']:
+                                st.success(f"✅ Query enhanced for better search results!")
+                                st.info(f"Original: '{enhanced_query_info['original_query']}'")
+                                st.info(f"Enhanced: '{enhanced_query_info['enhanced_query']}'")
+                                st.info(f"Business domain: {enhanced_query_info['business_domain']}")
+                                st.info(f"Purpose: {enhanced_query_info['purpose']}")
+                            
+                            if enhanced_query_info['detected_intent']:
+                                st.info(f"🎯 Detected intent: {', '.join(enhanced_query_info['detected_intent'])}")
+                            
+                            if enhanced_query_info['semantic_expansions']:
+                                st.info(f"🔍 Semantic expansions: {', '.join(enhanced_query_info['semantic_expansions'])}")
+                            
+                            # Use enhanced query for search
+                            search_query = enhanced_query_info['enhanced_query']
+                            st.info(f"🔍 Debug: Performing enhanced search with: '{search_query}'")
+                            
+                            try:
+                                search_results = mongodb_index.search(
+                                    search_query,
+                                    limit=top_n,
+                                    score_threshold=0.01
+                                )
+                                st.success(f"✅ Search successful: {len(search_results)} results")
+                            except Exception as e:
+                                st.error(f"❌ Search failed: {str(e)}")
+                                continue
                             
                             if not search_results:
                                 st.warning(f"No relevant documents found in MongoDB for {table_meta['display_name']}.")
@@ -983,81 +1023,126 @@ with tabs[0]:
                             
                             status_placeholder.info(f"Building context from MongoDB search results for {table_meta['display_name']}...")
                             
-                            # Convert search results to DataFrame
-                            # MongoDB results contain 'payload' which is the document content
+                            # Get raw data from MongoDB for context building
+                            st.info("🔍 Debug: Fetching raw data from MongoDB...")
+                            try:
+                                # Get raw data from MongoDB collection
+                                raw_data = mongodb_index.get_raw_data(limit=5000)
+                                st.success(f"✅ Raw data fetched: {len(raw_data)} documents")
+                                
+                                if not raw_data.empty:
+                                    # Debug: Show available columns
+                                    st.info(f"Available columns in {table_meta['display_name']}: {list(raw_data.columns)}")
+                                    
+                                    # 🚀 ENHANCED: Use MongoDB Schema Manager to optimize data for context
+                                    st.info("🔍 Debug: Optimizing data using enhanced schema configuration...")
+                                    try:
+                                        # Optimize DataFrame using enhanced schema configuration
+                                        raw_data_optimized = schema_manager.optimize_dataframe_for_context(
+                                            raw_data, 
+                                            collection_name
+                                        )
+                                        
+                                        # Get optimization details from enhanced schema
+                                        essential_cols = schema_manager.get_essential_columns(collection_name)
+                                        exclude_cols = schema_manager.get_exclude_columns(collection_name)
+                                        max_rows = schema_manager.get_max_context_rows(collection_name)
+                                        
+                                        # Get business context information
+                                        business_context = schema_manager.get_business_context(collection_name)
+                                        business_keywords = schema_manager.get_business_keywords(collection_name)
+                                        semantic_boost_fields = schema_manager.get_semantic_boost_fields(collection_name)
+                                        
+                                        st.success(f"✅ Data optimized using enhanced schema: {len(raw_data_optimized)} rows x {len(raw_data_optimized.columns)} columns")
+                                        st.info(f"Schema settings: Essential columns: {essential_cols}, Exclude: {exclude_cols}, Max rows: {max_rows}")
+                                        st.info(f"Business context: Domain: {business_context.get('domain', 'Unknown')}")
+                                        st.info(f"Business keywords: {business_keywords}")
+                                        st.info(f"Semantic boost fields: {semantic_boost_fields}")
+                                        
+                                        # Store the optimized data DataFrame
+                                        dfs[table_name] = raw_data_optimized
+                                        st.success(f"✅ Successfully processed {table_meta['display_name']}")
+                                        
+                                    except Exception as schema_error:
+                                        st.warning(f"Enhanced schema optimization failed, using fallback optimization: {str(schema_error)}")
+                                        # Fallback to basic optimization if schema fails
+                                        if len(raw_data) > 10:
+                                            raw_data_fallback = raw_data.sample(n=10, random_state=42)
+                                        else:
+                                            raw_data_fallback = raw_data.copy()
+                                        
+                                        # Keep only first 2 columns as fallback
+                                        if len(raw_data_fallback.columns) > 2:
+                                            raw_data_fallback = raw_data_fallback.iloc[:, :2]
+                                        
+                                        dfs[table_name] = raw_data_fallback
+                                        st.success(f"✅ Successfully processed {table_meta['display_name']} (fallback mode)")
+                                    
+                                else:
+                                    st.warning(f"No raw data found in MongoDB collection: {collection_name}")
+                                    continue
+                                    
+                            except Exception as e:
+                                st.error(f"❌ Failed to fetch raw data from MongoDB: {str(e)}")
+                                diagnostics_logger.log_error(f"MongoDB raw data fetch failed for {table_name}: {str(e)}")
+                                continue
+                            
+                            # Build context from search results for additional context
                             documents = []
                             for result in search_results:
-                                # Parse the payload (assuming it's JSON or structured data)
+                                # Handle MongoDB document format directly instead of trying to parse as JSON
                                 try:
-                                    import json
-                                    if isinstance(result['payload'], str):
-                                        doc_data = json.loads(result['payload'])
-                                    else:
-                                        doc_data = result['payload']
-                                    
-                                    # Add metadata
-                                    doc_data['_score'] = result.get('score', 0)
-                                    doc_data['_metadata'] = result.get('metadata', {})
+                                    # The payload is already a string representation of the MongoDB document
+                                    # We don't need to parse it as JSON since it's not valid JSON format
+                                    doc_data = {
+                                        'payload': result.get('payload', ''),
+                                        'score': result.get('score', 0),
+                                        'metadata': result.get('metadata', {})
+                                    }
                                     documents.append(doc_data)
                                 except Exception as e:
-                                    st.warning(f"Could not parse document: {e}")
+                                    st.warning(f"Could not process search result document: {e}")
                                     continue
                             
                             if documents:
-                                df_context = pd.DataFrame(documents)
+                                search_df = pd.DataFrame(documents)
+                                st.info(f"Search results DataFrame shape: {search_df.shape}")
                                 
-                                # Debug: Show available columns
-                                st.info(f"Available columns in {table_meta['display_name']}: {list(df_context.columns)}")
-                                
-                                # Only keep columns defined for MongoDB for this table (if specified)
-                                mongodb_columns = table_meta.get('mongodb_columns', table_meta.get('qdrant_columns', []))
-                                if mongodb_columns:
-                                    available_mongodb_columns = [col for col in mongodb_columns if col in df_context.columns]
-                                    if available_mongodb_columns:
-                                        df_context = df_context[available_mongodb_columns]
-                                    else:
-                                        st.warning(f"No matching columns found for {table_meta['display_name']}. Using all available columns.")
+                                # Combine raw data with search results for better context
+                                if not raw_data.empty:
+                                    # Use raw data as primary source, search results as supplementary
+                                    st.info(f"Using raw data from MongoDB collection: {collection_name}")
                                 else:
-                                    st.info(f"No specific MongoDB columns defined for {table_meta['display_name']}. Using all available columns.")
-                                
-                                dfs[table_name] = df_context
-                                st.success(f"✅ Successfully processed {table_meta['display_name']}")
+                                    # Fallback to search results if no raw data
+                                    dfs[table_name] = search_df
+                                    st.info(f"Using search results as fallback for {table_name}")
                             else:
-                                st.warning(f"No valid documents found in MongoDB for {table_meta['display_name']}.")
+                                st.warning(f"No search results could be parsed for {table_meta['display_name']}")
                                 continue
                             
                         except Exception as e:
-                            # Show the actual error instead of generic message
-                            st.error(f"❌ Error searching MongoDB for {table_meta['display_name']}: {str(e)}")
-                            st.error(f"❌ Error type: {type(e).__name__}")
-                            st.error(f"❌ Full error details: {e}")
-                            
-                            # Show connection-related suggestions if it's actually a connection error
-                            if "Connection" in str(e) or "Authentication" in str(e):
-                                st.warning("MongoDB connection failed. Possible solutions:")
-                                st.info("1. Check MONGODB_URI environment variable")
-                                st.info("2. Verify MongoDB Atlas credentials")
-                                st.info("3. Use FAISS instead: Select 'FAISS' as vector search engine")
-                                st.info("4. Use Qdrant instead: Select 'Qdrant' as vector search engine")
-                            else:
-                                st.warning("MongoDB search failed. Possible solutions:")
-                                st.info("1. Use FAISS instead: Select 'FAISS' as vector search engine")
-                                st.info("2. Use Qdrant instead: Select 'Qdrant' as vector search engine")
-                                st.info("3. Check the collection configuration")
+                            st.error(f"❌ Error processing MongoDB for {table_meta['display_name']}: {str(e)}")
+                            diagnostics_logger.log_error(f"MongoDB processing failed for {table_name}: {str(e)}")
                             continue
-                    
-                    # Debug: Show what we're trying to join
-                    st.info(f"DataFrames to join: {list(dfs.keys())}")
-                    for name, df in dfs.items():
-                        st.info(f"{name} columns: {list(df.columns)}")
-                    
-                    df1_context = join_dataframes(dfs, RAG_TABLES_CONFIG.get('relationships', []), backend='mongodb')
-                    if df1_context is not None and not df1_context.empty:
-                        context_info = f"Using top {len(df1_context)} semantically relevant rows for context in df1 (via MongoDB, {', '.join(selected_tables)})."
-                        st.info(context_info)
-                    else:
-                        st.warning("No context data available from MongoDB search. Will proceed with auto-fetch.")
-                        df1_context = None
+                        
+                        # Debug: Show what we're trying to join
+                        st.info(f"DataFrames to join: {list(dfs.keys())}")
+                        for name, df in dfs.items():
+                            st.info(f"{name} columns: {list(df.columns)}")
+                        
+                        # Check if we have any DataFrames before trying to join
+                        if not dfs:
+                            st.error("❌ No DataFrames available from MongoDB. Please check your connection and try again.")
+                            st.error("You can use FAISS or Qdrant instead by changing the vector search engine.")
+                            st.stop()
+                        
+                        df1_context = join_dataframes(dfs, RAG_TABLES_CONFIG.get('relationships', []), backend='mongodb')
+                        if df1_context is not None and not df1_context.empty:
+                            context_info = f"Using top {len(df1_context)} semantically relevant rows for context in df1 (via MongoDB, {', '.join(selected_tables)})."
+                            st.info(context_info)
+                        else:
+                            st.warning("No context data available from MongoDB search. Will proceed with auto-fetch.")
+                            df1_context = None
 
             except Exception as e:
                 st.error(f"Error in hybrid RAG semantic search: {e}")
@@ -1147,17 +1232,47 @@ with tabs[0]:
                                 # Build short context: column names and sample data
                                 colnames = ', '.join(df1_context.columns)
                                 sample_rows = df1_context.head(5).to_csv(index=False)
-                                prompt = f"<|user|>\nContext: {colnames}\nSample data:\n{sample_rows}\nQuestion: {user_question}\n<|assistant|>\n"
+                                
+                                # 🚀 ENHANCED: Add business context for Deepseek LLM reasoning
+                                if vector_search_engine == "MongoDB" and 'schema_manager' in locals():
+                                    try:
+                                        first_table = list(dfs.keys())[0] if dfs else None
+                                        if first_table:
+                                            business_context = schema_manager.get_business_context(first_table)
+                                            business_purpose = schema_manager.get_business_purpose(first_table)
+                                            essential_cols = schema_manager.get_essential_columns(first_table)
+                                            
+                                            enhanced_prompt = f"<|user|>\nBusiness Context: {business_context.get('domain', 'Unknown')} - {business_purpose}\nEssential Columns: {', '.join(essential_cols)}\nContext: {colnames}\nSample data:\n{sample_rows}\nQuestion: {user_question}\n<|assistant|>\n"
+                                        else:
+                                            enhanced_prompt = f"<|user|>\nContext: {colnames}\nSample data:\n{sample_rows}\nQuestion: {user_question}\n<|assistant|>\n"
+                                    except Exception as e:
+                                        enhanced_prompt = f"<|user|>\nContext: {colnames}\nSample data:\n{sample_rows}\nQuestion: {user_question}\n<|assistant|>\n"
+                                else:
+                                    enhanced_prompt = f"<|user|>\nContext: {colnames}\nSample data:\n{sample_rows}\nQuestion: {user_question}\n<|assistant|>\n"
+                                
                                 reasoning = RAGUtils.run_deepseek_llm(
-                                    prompt,
+                                    enhanced_prompt,
                                     max_new_tokens=400,
                                     temperature=0.2
                                 ).strip()
                         else:
+                            # 🚀 ENHANCED: Use enhanced system message with business context for reasoning
+                            system_message = "You are a senior data analyst. Explain your reasoning step by step for the user's question, referencing the DataFrames and columns you would use. Do not write code yet."
+                            
+                            if vector_search_engine == "MongoDB" and 'schema_manager' in locals():
+                                try:
+                                    first_table = list(dfs.keys())[0] if dfs else None
+                                    if first_table:
+                                        business_context = schema_manager.get_business_context(first_table)
+                                        business_purpose = schema_manager.get_business_purpose(first_table)
+                                        system_message = f"You are a senior data analyst with expertise in {business_context.get('domain', 'data analysis')}. Explain your reasoning step by step for the user's question, considering the business context and key entities. Reference the DataFrames and columns you would use. Do not write code yet."
+                                except Exception as e:
+                                    st.warning(f"Enhanced reasoning system message generation failed: {str(e)}")
+                            
                             reasoning_response = client.chat.completions.create(
                                 model=DEFAULT_MODEL,
                                 messages=[
-                                    {"role": "system", "content": "You are a senior data analyst. Explain your reasoning step by step for the user's question, referencing the DataFrames and columns you would use. Do not write code yet."},
+                                    {"role": "system", "content": system_message},
                                     {"role": "user", "content": reasoning_prompt}
                                 ],
                                 temperature=0.2,
@@ -1170,34 +1285,232 @@ with tabs[0]:
                         reasoning = ""
 
                 # --- Now generate code, using the reasoning as context ---
-                if is_viz:
-                    prompt = f"""
-You are a Python data analyst. The following pandas DataFrames are loaded: {', '.join(dfs.keys())}.
-
-IMPORTANT: Use ONLY the actual DataFrame names listed above and the actual column names provided below. Do NOT invent or assume column names or DataFrame names.
-
-Available DataFrames: {list(dfs.keys())}
-Available columns: {list(set([col for df in dfs.values() for col in df.columns]))}
-
-{comprehensive_context}
-
-Here is your reasoning for how to answer the question:\n{reasoning}\n
-Write Python code to answer the following question. Use ONLY the actual DataFrame names from the list above and the actual column names from the DataFrames. If a plot is required, use matplotlib and assign the figure to a variable called fig. If a tabular result is also needed, assign it to a variable called result. Only output the code (no explanations, no print statements, no comments). Question: {user_question}
-"""
+                # 🚀 ENHANCED: Use MongoDB Schema Manager for context optimization if available
+                if vector_search_engine == "MongoDB" and 'schema_manager' in locals() and df1_context is not None and not df1_context.empty:
+                    try:
+                        # Get the collection name from the first table
+                        first_table = list(dfs.keys())[0] if dfs else None
+                        if first_table:
+                            # Use enhanced schema manager to optimize context
+                            st.info("🔍 Debug: Using enhanced schema manager for context optimization...")
+                            
+                            # Get business context information for better reasoning
+                            business_context = schema_manager.get_business_context(first_table)
+                            business_purpose = schema_manager.get_business_purpose(first_table)
+                            common_queries = schema_manager.get_common_queries(first_table)
+                            
+                            st.info(f"🎯 Business context: {business_context.get('domain', 'Unknown')} - {business_purpose}")
+                            if common_queries:
+                                st.info(f"💡 Common query patterns: {len(common_queries)} examples available")
+                            
+                            # Use enhanced schema manager to optimize context
+                            df1_context_sample = schema_manager.optimize_dataframe_for_context(
+                                df1_context, 
+                                first_table
+                            )
+                            
+                            # Get enhanced optimization details
+                            essential_cols = schema_manager.get_essential_columns(first_table)
+                            exclude_cols = schema_manager.get_exclude_columns(first_table)
+                            max_rows = schema_manager.get_max_context_rows(first_table)
+                            
+                            # Get search optimization settings
+                            search_settings = schema_manager.get_search_optimization_settings(first_table)
+                            business_keywords = schema_manager.get_business_keywords(first_table)
+                            semantic_boost_fields = schema_manager.get_semantic_boost_fields(first_table)
+                            
+                            st.success(f"✅ Context optimized using enhanced schema: {len(df1_context_sample)} rows x {len(df1_context_sample.columns)} columns")
+                            st.info(f"Enhanced schema settings: Essential columns: {essential_cols}, Exclude: {exclude_cols}, Max rows: {max_rows}")
+                            st.info(f"Search optimization: Business keywords: {business_keywords}, Semantic boost fields: {semantic_boost_fields}")
+                            
+                        else:
+                            # Fallback to basic optimization
+                            st.warning("No table name available for enhanced schema optimization, using fallback")
+                            # Limit to 10 rows for context (absolute minimum)
+                            max_context_rows = 10
+                            if len(df1_context) > max_context_rows:
+                                st.info(f"⚠️ Large dataset detected ({len(df1_context)} rows). Sampling {max_context_rows} rows for context to avoid token limits.")
+                                df1_context_sample = df1_context.sample(n=max_context_rows, random_state=42)
+                            else:
+                                df1_context_sample = df1_context
+                            
+                            # Further reduce context by limiting column content for very long fields
+                            if not df1_context_sample.empty:
+                                # Create a simplified context DataFrame with limited content
+                                # Only use columns that actually exist in the DataFrame
+                                available_columns = list(df1_context_sample.columns)
+                                context_columns = []
+                                
+                                # Add essential columns if they exist
+                                if '_id_oid' in available_columns:
+                                    context_columns.append('_id_oid')
+                                if 'type' in available_columns:
+                                    context_columns.append('type')
+                                if 'value' in available_columns:
+                                    context_columns.append('value')
+                                
+                                # If no essential columns found, use the first few available columns
+                                if not context_columns:
+                                    context_columns = available_columns[:1]  # Use only 1 column maximum
+                                
+                                # Limit Results field to first 50 characters if it exists (reduced from 100)
+                                if 'Results' in df1_context_sample.columns:
+                                    df1_context_sample['Results'] = df1_context_sample['Results'].astype(str).str[:50] + '...'
+                                
+                                # Only keep selected context columns
+                                df1_context_sample = df1_context_sample[context_columns]
+                                
+                                st.info(f"✅ Context optimized: {len(df1_context_sample)} rows with {len(df1_context_sample.columns)} essential columns: {context_columns}")
+                            
+                    except Exception as schema_error:
+                        st.warning(f"Enhanced schema optimization failed, using fallback: {str(schema_error)}")
+                        # Fallback to basic optimization
+                        max_context_rows = 10  # Limit to 10 rows for context (absolute minimum)
+                        if df1_context is not None and len(df1_context) > max_context_rows:
+                            st.info(f"⚠️ Large dataset detected ({len(df1_context)} rows). Sampling {max_context_rows} rows for context to avoid token limits.")
+                            df1_context_sample = df1_context.sample(n=max_context_rows, random_state=42)
+                        else:
+                            df1_context_sample = df1_context if df1_context is not None else pd.DataFrame()
+                        
+                        # Further reduce context by limiting column content for very long fields
+                        if not df1_context_sample.empty:
+                            # Create a simplified context DataFrame with limited content
+                            # Only use columns that actually exist in the DataFrame
+                            available_columns = list(df1_context_sample.columns)
+                            context_columns = []
+                            
+                            # Add essential columns if they exist
+                            if '_id_oid' in available_columns:
+                                context_columns.append('_id_oid')
+                            if 'type' in available_columns:
+                                context_columns.append('type')
+                            if 'value' in available_columns:
+                                context_columns.append('value')
+                            
+                            # If no essential columns found, use the first few available columns
+                            if not context_columns:
+                                context_columns = available_columns[:1]  # Use only 1 column maximum
+                            
+                            # Limit Results field to first 50 characters if it exists (reduced from 100)
+                            if 'Results' in df1_context_sample.columns:
+                                df1_context_sample['Results'] = df1_context_sample['Results'].astype(str).str[:50] + '...'
+                            
+                            # Only keep selected context columns
+                            df1_context_sample = df1_context_sample[context_columns]
+                            
+                            st.info(f"✅ Context optimized: {len(df1_context_sample)} rows with {len(df1_context_sample.columns)} essential columns: {context_columns}")
+                        
                 else:
-                    prompt = f"""
-You are a Python data analyst. The following pandas DataFrames are loaded: {', '.join(dfs.keys())}.
+                    # Standard context optimization for non-MongoDB engines
+                    # Limit the context size to prevent token limit exceeded errors
+                    max_context_rows = 10  # Limit to 10 rows for context (absolute minimum)
+                    if df1_context is not None and len(df1_context) > max_context_rows:
+                        st.info(f"⚠️ Large dataset detected ({len(df1_context)} rows). Sampling {max_context_rows} rows for context to avoid token limits.")
+                        df1_context_sample = df1_context.sample(n=max_context_rows, random_state=42)
+                    else:
+                        df1_context_sample = df1_context if df1_context is not None else pd.DataFrame()
+                    
+                    # Further reduce context by limiting column content for very long fields
+                    if not df1_context_sample.empty:
+                        # Create a simplified context DataFrame with limited content
+                        # Only use columns that actually exist in the DataFrame
+                        available_columns = list(df1_context_sample.columns)
+                        context_columns = []
+                        
+                        # Add essential columns if they exist
+                        if '_id_oid' in available_columns:
+                            context_columns.append('_id_oid')
+                        if 'type' in available_columns:
+                            context_columns.append('type')
+                        if 'value' in available_columns:
+                            context_columns.append('value')
+                        
+                        # If no essential columns found, use the first few available columns
+                        if not context_columns:
+                            context_columns = available_columns[:1]  # Use only 1 column maximum
+                        
+                        # Limit Results field to first 50 characters if it exists (reduced from 100)
+                        if 'Results' in df1_context_sample.columns:
+                            df1_context_sample['Results'] = df1_context_sample['Results'].astype(str).str[:50] + '...'
+                        
+                        # Only keep selected context columns
+                        df1_context_sample = df1_context_sample[context_columns]
+                        
+                        st.info(f"✅ Context optimized: {len(df1_context_sample)} rows with {len(df1_context_sample.columns)} essential columns: {context_columns}")
+
+                if is_viz:
+                    # 🚀 ENHANCED: Add business context for visualization prompts
+                    if vector_search_engine == "MongoDB" and 'schema_manager' in locals():
+                        try:
+                            first_table = list(dfs.keys())[0] if dfs else None
+                            if first_table:
+                                business_context = schema_manager.get_business_context(first_table)
+                                business_purpose = schema_manager.get_business_purpose(first_table)
+                                essential_cols = schema_manager.get_essential_columns(first_table)
+                                
+                                enhanced_prompt = f"""
+You are a Python data analyst with expertise in {business_context.get('domain', 'data analysis')}. The following pandas DataFrames are loaded: {', '.join(dfs.keys())}.
+
+BUSINESS CONTEXT: {business_context.get('domain', 'Unknown')} - {business_purpose}
+ESSENTIAL BUSINESS COLUMNS: {', '.join(essential_cols)}
 
 IMPORTANT: Use ONLY the actual DataFrame names listed above and the actual column names provided below. Do NOT invent or assume column names or DataFrame names.
 
 Available DataFrames: {list(dfs.keys())}
 Available columns: {list(set([col for df in dfs.values() for col in df.columns]))}
 
-{comprehensive_context}
+Sample data from df1 (showing first 5 rows):
+{df1_context_sample.head(5).to_string() if not df1_context_sample.empty else "No data available"}
 
 Here is your reasoning for how to answer the question:\n{reasoning}\n
-Write Python pandas code to answer the following question. Use ONLY the actual DataFrame names from the list above and the actual column names from the DataFrames. Assign the final answer to a variable called result. Only output the code (no explanations, no print statements, no comments). Question: {user_question}
+Write Python code to answer the following question. Use ONLY the actual DataFrame names from the list above and the actual column names from the DataFrames. Focus on business-relevant columns when available. If a plot is required, use matplotlib and assign the figure to a variable called fig. If a tabular result is also needed, assign it to a variable called result. Only output the code (no explanations, no print statements, no comments). Question: {user_question}
 """
+                            else:
+                                enhanced_prompt = prompt
+                        except Exception as e:
+                            st.warning(f"Enhanced prompt generation failed: {str(e)}")
+                            enhanced_prompt = prompt
+                    else:
+                        enhanced_prompt = prompt
+                    
+                    prompt = enhanced_prompt
+                else:
+                    # 🚀 ENHANCED: Add business context for standard code prompts
+                    if vector_search_engine == "MongoDB" and 'schema_manager' in locals():
+                        try:
+                            first_table = list(dfs.keys())[0] if dfs else None
+                            if first_table:
+                                business_context = schema_manager.get_business_context(first_table)
+                                business_purpose = schema_manager.get_business_purpose(first_table)
+                                essential_cols = schema_manager.get_essential_columns(first_table)
+                                
+                                enhanced_prompt = f"""
+You are a Python data analyst with expertise in {business_context.get('domain', 'data analysis')}. The following pandas DataFrames are loaded: {', '.join(dfs.keys())}.
+
+BUSINESS CONTEXT: {business_context.get('domain', 'Unknown')} - {business_purpose}
+ESSENTIAL BUSINESS COLUMNS: {', '.join(essential_cols)}
+
+IMPORTANT: Use ONLY the actual DataFrame names listed above and the actual column names provided below. Do NOT invent or assume column names or DataFrame names.
+
+Available DataFrames: {list(dfs.keys())}
+Available columns: {list(set([col for df in dfs.values() for col in df.columns]))}
+
+Sample data from df1 (showing first 5 rows):
+{df1_context_sample.head(5).to_string() if not df1_context_sample.empty else "No data available"}
+
+Here is your reasoning for how to answer the question:\n{reasoning}\n
+Write Python pandas code to answer the following question. Use ONLY the actual DataFrame names from the list above and the actual column names from the DataFrames. Focus on business-relevant columns when available. Assign the final answer to a variable called result. Only output the code (no explanations, no print statements, no comments). Question: {user_question}
+"""
+                            else:
+                                enhanced_prompt = prompt
+                        except Exception as e:
+                            st.warning(f"Enhanced prompt generation failed: {str(e)}")
+                            enhanced_prompt = prompt
+                    else:
+                        enhanced_prompt = prompt
+                    
+                    prompt = enhanced_prompt
+
                 with st.spinner(f"Generating code with {llm_provider}..."):
                     try:
                         if llm_provider == "Local Deepseek LLM":
@@ -1209,18 +1522,48 @@ Write Python pandas code to answer the following question. Use ONLY the actual D
                                 # Build short context: column names and sample data
                                 colnames = ', '.join(df1_context.columns)
                                 sample_rows = df1_context.head(5).to_csv(index=False)
-                                prompt = f"<|user|>\nContext: {colnames}\nSample data:\n{sample_rows}\nQuestion: {user_question}\n<|assistant|>\n"
+                                
+                                # 🚀 ENHANCED: Add business context for Deepseek LLM
+                                if vector_search_engine == "MongoDB" and 'schema_manager' in locals():
+                                    try:
+                                        first_table = list(dfs.keys())[0] if dfs else None
+                                        if first_table:
+                                            business_context = schema_manager.get_business_context(first_table)
+                                            business_purpose = schema_manager.get_business_purpose(first_table)
+                                            essential_cols = schema_manager.get_essential_columns(first_table)
+                                            
+                                            enhanced_prompt = f"<|user|>\nBusiness Context: {business_context.get('domain', 'Unknown')} - {business_purpose}\nEssential Columns: {', '.join(essential_cols)}\nContext: {colnames}\nSample data:\n{sample_rows}\nQuestion: {user_question}\n<|assistant|>\n"
+                                        else:
+                                            enhanced_prompt = f"<|user|>\nContext: {colnames}\nSample data:\n{sample_rows}\nQuestion: {user_question}\n<|assistant|>\n"
+                                    except Exception as e:
+                                        enhanced_prompt = f"<|user|>\nContext: {colnames}\nSample data:\n{sample_rows}\nQuestion: {user_question}\n<|assistant|>\n"
+                                else:
+                                    enhanced_prompt = f"<|user|>\nContext: {colnames}\nSample data:\n{sample_rows}\nQuestion: {user_question}\n<|assistant|>\n"
+                                
                                 pandas_code = RAGUtils.run_deepseek_llm(
-                                    prompt,
+                                    enhanced_prompt,
                                     max_new_tokens=700,
                                     temperature=0.0
                                 )
                                 pandas_code = RAGUtils.clean_code(pandas_code)
                         else:
+                            # 🚀 ENHANCED: Use enhanced system message with business context
+                            system_message = "You are a helpful Python data analyst. Only output code that produces the answer as a DataFrame or Series, and assign it to a variable called result. If a plot is required, assign the matplotlib figure to a variable called fig. You can use any of the loaded DataFrames (df1, df2, etc.)."
+                            
+                            if vector_search_engine == "MongoDB" and 'schema_manager' in locals():
+                                try:
+                                    first_table = list(dfs.keys())[0] if dfs else None
+                                    if first_table:
+                                        business_context = schema_manager.get_business_context(first_table)
+                                        business_purpose = schema_manager.get_business_purpose(first_table)
+                                        system_message = f"You are a helpful Python data analyst with expertise in {business_context.get('domain', 'data analysis')}. Only output code that produces the answer as a DataFrame or Series, and assign it to a variable called result. If a plot is required, assign the matplotlib figure to a variable called fig. You can use any of the loaded DataFrames (df1, df2, etc.). Focus on business-relevant columns when available."
+                                except Exception as e:
+                                    st.warning(f"Enhanced system message generation failed: {str(e)}")
+                            
                             code_response = client.chat.completions.create(
                                 model=DEFAULT_MODEL,
                                 messages=[
-                                    {"role": "system", "content": "You are a helpful Python data analyst. Only output code that produces the answer as a DataFrame or Series, and assign it to a variable called result. If a plot is required, assign the matplotlib figure to a variable called fig. You can use any of the loaded DataFrames (df1, df2, etc.)."},
+                                    {"role": "system", "content": system_message},
                                     {"role": "user", "content": prompt}
                                 ],
                                 temperature=0.0,
@@ -1578,3 +1921,20 @@ with tabs[1]:
                 st.error(f"Error executing SQL query: {e}\n{traceback.format_exc()}")
         else:
             st.warning("Please enter a SQL query.") 
+
+def _basic_context_optimization(df):
+    """Basic context optimization when schema manager is not available."""
+    if df is None or df.empty:
+        return df
+    
+    # Sample to 10 rows maximum
+    if len(df) > 10:
+        df_optimized = df.sample(n=10, random_state=42)
+    else:
+        df_optimized = df.copy()
+    
+    # Keep only first 2 columns to minimize tokens
+    if len(df_optimized.columns) > 2:
+        df_optimized = df_optimized.iloc[:, :2]
+    
+    return df_optimized

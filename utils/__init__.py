@@ -10,34 +10,30 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import core utilities that are actually used by the main application
-from .rag_utils import RAGUtils
-from .qdrant_utils import QdrantIndex
 from .mongodb_utils import MongoDBIndex
+from .mongodb_schema_manager import MongoDBSchemaManager
+from .qdrant_utils import QdrantIndex
+from .dataframe_corrector import DataFrameCorrector
+from .enhanced_dataframe_corrector import EnhancedDataFrameCorrector
+from .rag_utils import RAGUtils
+from .sql_connection import sql_manager
 from .diagnostics_logger import diagnostics_logger, EventType, LogLevel
 from .diagnostics_dashboard import diagnostics_dashboard
 from .startup_monitor import startup_monitor
 from .performance_optimizer import performance_optimizer
-from .optimized_loader import optimized_loader
-from .sql_connection import sql_manager
-
-# Import DataFrame correction utilities
-from .dataframe_corrector import DataFrameCorrector
-from .enhanced_dataframe_corrector import EnhancedDataFrameCorrector
-from .intelligent_dataframe_fixer import IntelligentDataFrameFixer
 
 __all__ = [
-    'RAGUtils',
-    'QdrantIndex',
     'MongoDBIndex',
+    'MongoDBSchemaManager',
+    'QdrantIndex',
+    'DataFrameCorrector',
+    'EnhancedDataFrameCorrector',
+    'RAGUtils',
+    'sql_manager',
     'diagnostics_logger',
     'EventType',
     'LogLevel',
     'diagnostics_dashboard',
     'startup_monitor',
-    'performance_optimizer',
-    'optimized_loader',
-    'sql_manager',
-    'DataFrameCorrector',
-    'EnhancedDataFrameCorrector',
-    'IntelligentDataFrameFixer',
+    'performance_optimizer'
 ] 
