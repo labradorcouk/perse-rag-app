@@ -3,23 +3,57 @@ import os
 from typing import Dict, List, Any, Optional
 import pandas as pd
 import re
+from datetime import datetime
+from pymongo import MongoClient
 
 class MongoDBSchemaManager:
     """
     Manages MongoDB collection schemas and optimizes context generation
-    to prevent parsing issues and optimize token usage.
-    Now includes contextual awareness and semantic search capabilities.
+    to prevent parsing issues and optimize token usage in RAG applications.
+    Now includes enhanced contextual awareness, semantic search capabilities,
+    Q&A pattern matching for better intent understanding, and dynamic learning
+    capabilities for continuous improvement.
     """
     
-    def __init__(self, config_path: str = "config/mongodb_schema_config.yaml"):
+    def __init__(self, config_path: str = "config/mongodb_schema_config.yaml", qa_config_path: str = "config/mongodb_qa_collections.yaml"):
         """
         Initialize the MongoDB schema manager.
         
         Args:
             config_path: Path to the MongoDB schema configuration file
+            qa_config_path: Path to the MongoDB Q&A collections configuration file
         """
         self.config_path = config_path
+        self.qa_config_path = qa_config_path
         self.schema_config = self._load_schema_config()
+        self.qa_config = self._load_qa_config()
+        
+        # Initialize MongoDB connection for Q&A collections
+        self.mongo_client = None
+        self.qa_db = None
+        self._init_mongodb_connection()
+    
+    def _init_mongodb_connection(self):
+        """Initialize MongoDB connection for Q&A collections."""
+        try:
+            # Get MongoDB connection from environment or config
+            mongo_uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
+            self.mongo_client = MongoClient(mongo_uri)
+            self.qa_db = self.mongo_client['perse-data-network']
+            
+            # Test connection
+            self.mongo_client.admin.command('ping')
+            print("✅ Connected to MongoDB Q&A collections")
+            
+        except Exception as e:
+            print(f"⚠️ MongoDB connection failed: {e}")
+            print("⚠️ Dynamic learning features will be disabled")
+            self.mongo_client = None
+            self.qa_db = None
+    
+    def is_mongodb_available(self) -> bool:
+        """Check if MongoDB connection is available."""
+        return self.qa_db is not None and self.mongo_client is not None
     
     def _load_schema_config(self) -> Dict[str, Any]:
         """Load the MongoDB schema configuration file."""
@@ -34,6 +68,19 @@ class MongoDBSchemaManager:
             print(f"Error loading MongoDB schema config: {e}")
             return {}
     
+    def _load_qa_config(self) -> Dict[str, Any]:
+        """Load the MongoDB Q&A collections configuration file."""
+        try:
+            with open(self.qa_config_path, 'r') as f:
+                config = yaml.safe_load(f)
+            return config
+        except FileNotFoundError:
+            print(f"Warning: MongoDB Q&A config not found at {self.qa_config_path}")
+            return {}
+        except Exception as e:
+            print(f"Error loading MongoDB Q&A config: {e}")
+            return {}
+    
     def get_collection_schema(self, collection_name: str) -> Optional[Dict[str, Any]]:
         """
         Get the schema configuration for a specific collection.
@@ -45,6 +92,157 @@ class MongoDBSchemaManager:
             Schema configuration dictionary or None if not found
         """
         return self.schema_config.get('mongodb_collections', {}).get(collection_name)
+    
+    def get_qa_patterns(self, collection_name: str) -> List[Dict[str, Any]]:
+        """
+        Get Q&A patterns for a specific collection.
+        
+        Args:
+            collection_name: Name of the MongoDB collection
+            
+        Returns:
+            List of Q&A patterns
+        """
+        schema = self.get_collection_schema(collection_name)
+        if schema and 'question_answer_patterns' in schema:
+            return schema.get('question_answer_patterns', {}).get('core_patterns', [])
+        return []
+    
+    def get_hybrid_qa_patterns(self, collection_name: str) -> List[Dict[str, Any]]:
+        """
+        Get Q&A patterns from both YAML (core) and MongoDB (extended).
+        This creates a hybrid system for optimal performance.
+        
+        Args:
+            collection_name: Name of the MongoDB collection
+            
+        Returns:
+            List of Q&A patterns from both sources
+        """
+        patterns = []
+        
+        # 1. Get core patterns from YAML (fast, reliable)
+        core_patterns = self.get_qa_patterns(collection_name)
+        patterns.extend(core_patterns)
+        
+        # 2. Get extended patterns from MongoDB (dynamic, learnable)
+        if self.qa_db is not None:
+            try:
+                extended_patterns = list(
+                    self.qa_db.extended_qa_patterns.find({
+                        "collection_name": collection_name,
+                        "is_active": True
+                    }).sort("confidence_score", -1)
+                )
+                patterns.extend(extended_patterns)
+                print(f"✅ Loaded {len(extended_patterns)} extended patterns from MongoDB")
+            except Exception as e:
+                print(f"⚠️ Failed to load extended patterns: {e}")
+        
+        return patterns
+    
+    def get_intent_categories(self, collection_name: str) -> Dict[str, Any]:
+        """
+        Get intent categories for a specific collection.
+        
+        Args:
+            collection_name: Name of the MongoDB collection
+            
+        Returns:
+            Dictionary of intent categories
+        """
+        schema = self.get_collection_schema(collection_name)
+        if schema and 'question_answer_patterns' in schema:
+            return schema.get('question_answer_patterns', {}).get('intent_categories', {})
+        return {}
+    
+    def match_qa_pattern(self, collection_name: str, user_query: str) -> Optional[Dict[str, Any]]:
+        """
+        Match a user query against Q&A patterns to find the best match.
+        Now uses hybrid patterns from both YAML and MongoDB.
+        
+        Args:
+            collection_name: Name of the MongoDB collection
+            user_query: The user's query
+            
+        Returns:
+            Best matching Q&A pattern or None if no match found
+        """
+        # Use hybrid patterns for better coverage
+        patterns = self.get_hybrid_qa_patterns(collection_name)
+        if not patterns:
+            return None
+        
+        best_match = None
+        best_score = 0.0
+        
+        for pattern in patterns:
+            score = self._calculate_pattern_match_score(pattern, user_query, collection_name)
+            if score > best_score and score >= 0.7:  # Minimum confidence threshold
+                best_score = score
+                best_match = pattern.copy()
+                best_match['match_score'] = score
+        
+        return best_match
+    
+    def _calculate_pattern_match_score(self, pattern: Dict[str, Any], user_query: str, collection_name: str) -> float:
+        """
+        Calculate how well a pattern matches a user query.
+        
+        Args:
+            pattern: The Q&A pattern to match against
+            user_query: The user's query
+            collection_name: Name of the MongoDB collection
+            
+        Returns:
+            Match score between 0.0 and 1.0
+        """
+        query_lower = user_query.lower()
+        pattern_lower = pattern.get('question_pattern', '').lower()
+        
+        # Check exact pattern match
+        if pattern_lower in query_lower or query_lower in pattern_lower:
+            return 0.95
+        
+        # Check sample queries
+        sample_queries = pattern.get('sample_queries', [])
+        for sample in sample_queries:
+            sample_lower = sample.lower()
+            if sample_lower in query_lower or query_lower in sample_lower:
+                return 0.9
+        
+        # Check business entities
+        business_entities = pattern.get('business_entities', [])
+        entity_matches = 0
+        for entity in business_entities:
+            if entity.lower() in query_lower:
+                entity_matches += 1
+        
+        if business_entities:
+            entity_score = entity_matches / len(business_entities)
+        else:
+            entity_score = 0.0
+        
+        # Check intent keywords
+        intent_categories = self.get_intent_categories(collection_name)
+        intent_keywords = []
+        for category in intent_categories.values():
+            intent_keywords.extend(category.get('keywords', []))
+        
+        keyword_matches = 0
+        for keyword in intent_keywords:
+            if keyword.lower() in query_lower:
+                keyword_matches += 1
+        
+        if intent_keywords:
+            keyword_score = keyword_matches / len(intent_keywords)
+        else:
+            keyword_score = 0.0
+        
+        # Calculate final score
+        final_score = (entity_score * 0.4) + (keyword_score * 0.6)
+        
+        return min(final_score, 0.85)  # Cap at 0.85 for non-exact matches
     
     def get_business_context(self, collection_name: str) -> Dict[str, Any]:
         """
@@ -202,7 +400,7 @@ class MongoDBSchemaManager:
     
     def enhance_user_query(self, collection_name: str, user_query: str) -> Dict[str, Any]:
         """
-        Enhance user query using business context and semantic understanding.
+        Enhance user query using business context, semantic understanding, and Q&A patterns.
         
         Args:
             collection_name: Name of the MongoDB collection
@@ -211,25 +409,77 @@ class MongoDBSchemaManager:
         Returns:
             Enhanced query information
         """
-        schema = self.get_collection_schema(collection_name)
-        if not schema:
-            return {'original_query': user_query, 'enhanced_query': user_query}
-        
-        business_context = self.get_business_context(collection_name)
-        query_enhancement = schema.get('query_enhancement', {})
-        
-        enhanced_info = {
+        # Initialize default enhanced info to ensure all keys are always present
+        default_enhanced_info = {
             'original_query': user_query,
             'enhanced_query': user_query,
-            'business_domain': business_context.get('domain', 'Unknown'),
-            'purpose': business_context.get('purpose', 'Data analysis'),
+            'business_domain': 'Unknown',
+            'purpose': 'Data analysis',
             'detected_intent': [],
             'semantic_expansions': [],
             'relevant_columns': [],
-            'search_strategy': 'vector_search'
+            'search_strategy': 'vector_search',
+            'qa_pattern_match': None,
+            'confidence_score': 0.0
         }
         
-        # Detect query intent based on patterns
+        try:
+            schema = self.get_collection_schema(collection_name)
+            if not schema:
+                return default_enhanced_info
+            
+            business_context = self.get_business_context(collection_name)
+            query_enhancement = schema.get('query_enhancement', {})
+            
+            enhanced_info = {
+                'original_query': user_query,
+                'enhanced_query': user_query,
+                'business_domain': business_context.get('domain', 'Unknown'),
+                'purpose': business_context.get('purpose', 'Data analysis'),
+                'detected_intent': [],
+                'semantic_expansions': [],
+                'relevant_columns': [],
+                'search_strategy': 'vector_search',
+                'qa_pattern_match': None,
+                'confidence_score': 0.0
+            }
+        
+        # 🚀 ENHANCED: Q&A Pattern Matching
+        if query_enhancement.get('enable_qa_pattern_matching', False):
+            qa_pattern = self.match_qa_pattern(collection_name, user_query)
+            if qa_pattern:
+                enhanced_info['qa_pattern_match'] = qa_pattern
+                enhanced_info['confidence_score'] = qa_pattern.get('match_score', 0.0)
+                enhanced_info['detected_intent'].append(qa_pattern.get('answer_intent', ''))
+                
+                # Use expected columns from the pattern
+                expected_columns = qa_pattern.get('expected_columns', [])
+                if expected_columns:
+                    enhanced_info['relevant_columns'] = [
+                        {
+                            'name': col,
+                            'relevance': 'high',
+                            'business_meaning': f'Expected column for {qa_pattern.get("answer_intent", "")} intent',
+                            'keywords': []
+                        }
+                        for col in expected_columns
+                    ]
+                
+                # Use search strategy from the pattern
+                search_strategy = qa_pattern.get('search_strategy', '')
+                if search_strategy:
+                    enhanced_info['search_strategy'] = search_strategy
+        
+        # 🚀 ENHANCED: Intent Detection
+        if query_enhancement.get('enable_intent_detection', False):
+            intent_categories = self.get_intent_categories(collection_name)
+            for intent_name, intent_info in intent_categories.items():
+                keywords = intent_info.get('keywords', [])
+                if any(keyword.lower() in user_query.lower() for keyword in keywords):
+                    if intent_name not in enhanced_info['detected_intent']:
+                        enhanced_info['detected_intent'].append(intent_name)
+        
+        # Semantic expansion (existing logic)
         if query_enhancement.get('enable_semantic_expansion', False):
             patterns = query_enhancement.get('common_question_patterns', {})
             aliases = query_enhancement.get('business_aliases', {})
@@ -237,7 +487,8 @@ class MongoDBSchemaManager:
             # Detect intent patterns
             for intent, keywords in patterns.items():
                 if any(keyword.lower() in user_query.lower() for keyword in keywords):
-                    enhanced_info['detected_intent'].append(intent)
+                    if intent not in enhanced_info['detected_intent']:
+                        enhanced_info['detected_intent'].append(intent)
             
             # Apply semantic expansions
             expanded_query = user_query
@@ -262,18 +513,25 @@ class MongoDBSchemaManager:
                 # Check if query contains relevant keywords
                 query_lower = user_query.lower()
                 if any(keyword.lower() in query_lower for keyword in keywords):
-                    enhanced_info['relevant_columns'].append({
-                        'name': column_name,
-                        'relevance': relevance,
-                        'business_meaning': column_info.get('business_meaning', ''),
-                        'keywords': keywords
-                    })
+                    # Check if column is already in relevant_columns
+                    if not any(col['name'] == column_name for col in enhanced_info['relevant_columns']):
+                        enhanced_info['relevant_columns'].append({
+                            'name': column_name,
+                            'relevance': relevance,
+                            'business_meaning': column_info.get('business_meaning', ''),
+                            'keywords': keywords
+                        })
         
-        # Determine search strategy
-        if enhanced_info['detected_intent']:
-            enhanced_info['search_strategy'] = 'semantic_search'
-        
-        return enhanced_info
+            # Determine search strategy
+            if enhanced_info['detected_intent']:
+                enhanced_info['search_strategy'] = 'semantic_search'
+            
+            return enhanced_info
+            
+        except Exception as e:
+            # Log the error and return default info
+            print(f"Error in enhance_user_query for {collection_name}: {str(e)}")
+            return default_enhanced_info
     
     def get_search_optimization_settings(self, collection_name: str) -> Dict[str, Any]:
         """
@@ -449,6 +707,7 @@ class MongoDBSchemaManager:
             'data_dictionary_fields': len(schema.get('data_dictionary', {})),
             'business_context': 'business_context' in schema,
             'query_enhancement': 'query_enhancement' in schema,
+            'qa_patterns': 'question_answer_patterns' in schema,
             'essential_columns': len(schema.get('context_optimization', {}).get('essential_columns', [])),
             'exclude_columns': len(schema.get('context_optimization', {}).get('exclude_columns', []))
         }
@@ -463,8 +722,297 @@ class MongoDBSchemaManager:
         if 'business_context' not in schema:
             validation_results['warnings'].append('Missing business context section')
         
+        # Check for Q&A patterns
+        if 'question_answer_patterns' not in schema:
+            validation_results['warnings'].append('Missing question/answer patterns section')
+        
         # Check for essential columns
         if not schema.get('context_optimization', {}).get('essential_columns'):
             validation_results['warnings'].append('No essential columns defined')
         
-        return validation_results 
+        return validation_results
+    
+    def learn_from_query(self, collection_name: str, user_query: str, 
+                         detected_intent: str, user_satisfaction: int = None):
+        """
+        Learn from user query for pattern improvement.
+        This is called automatically during query processing.
+        
+        Args:
+            collection_name: Name of the MongoDB collection
+            user_query: The user's original query
+            detected_intent: The intent that was detected
+            user_satisfaction: User satisfaction rating (1-5) if available
+        """
+        if not self.is_mongodb_available():
+            return
+        
+        try:
+            # Extract query features
+            query_features = self._extract_query_features(user_query)
+            
+            # Record learning data
+            learning_data = {
+                "collection_name": collection_name,
+                "user_query": user_query,
+                "detected_intent": detected_intent,
+                "query_features": query_features,
+                "created_at": datetime.now(),
+                "session_id": self._get_session_id()
+            }
+            
+            if user_satisfaction is not None:
+                learning_data["user_satisfaction"] = user_satisfaction
+            
+            # Insert into learning collection
+            self.qa_db.intent_learning_data.insert_one(learning_data)
+            
+            # Update pattern usage statistics
+            self._update_pattern_usage(collection_name, detected_intent)
+            
+            print(f"✅ Learning data recorded for {collection_name}")
+            
+        except Exception as e:
+            print(f"⚠️ Failed to record learning data: {e}")
+    
+    def _extract_query_features(self, user_query: str) -> Dict[str, Any]:
+        """
+        Extract features from user query for learning.
+        
+        Args:
+            user_query: The user's query
+            
+        Returns:
+            Dictionary of extracted features
+        """
+        query_lower = user_query.lower()
+        
+        # Extract business keywords from the schema
+        business_keywords = []
+        technical_keywords = []
+        
+        # Check for common business terms
+        business_terms = ['mpan', 'meter', 'supplier', 'error', 'validation', 'postcode', 'location']
+        for term in business_terms:
+            if term in query_lower:
+                business_keywords.append(term)
+        
+        # Check for technical terms
+        technical_terms = ['analyze', 'find', 'show', 'count', 'pattern', 'trend', 'frequency']
+        for term in technical_terms:
+            if term in query_lower:
+                technical_keywords.append(term)
+        
+        return {
+            "word_count": len(user_query.split()),
+            "has_numbers": any(char.isdigit() for char in user_query),
+            "has_dates": any(word in query_lower for word in ['today', 'yesterday', 'date', 'time']),
+            "business_keywords": business_keywords,
+            "technical_keywords": technical_keywords
+        }
+    
+    def _get_session_id(self) -> str:
+        """Generate a simple session ID for grouping related queries."""
+        return f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    
+    def _update_pattern_usage(self, collection_name: str, intent: str):
+        """
+        Update usage statistics for patterns.
+        
+        Args:
+            collection_name: Name of the MongoDB collection
+            intent: The detected intent
+        """
+        if self.qa_db is None:
+            return
+            
+        try:
+            self.qa_db.extended_qa_patterns.update_many(
+                {
+                    "collection_name": collection_name,
+                    "answer_intent": intent
+                },
+                {
+                    "$inc": {"usage_count": 1},
+                    "$set": {"updated_at": datetime.now()}
+                }
+            )
+        except Exception as e:
+            print(f"⚠️ Failed to update pattern usage: {e}")
+    
+    def evolve_patterns(self, collection_name: str):
+        """
+        Evolve patterns based on learning data and feedback.
+        This can be called periodically or after certain thresholds.
+        
+        Args:
+            collection_name: Name of the MongoDB collection
+        """
+        if self.qa_db is None:
+            return
+        
+        try:
+            # Analyze learning data
+            learning_data = list(
+                self.qa_db.intent_learning_data.find({
+                    "collection_name": collection_name
+                })
+            )
+            
+            if len(learning_data) < 10:  # Need minimum data
+                print(f"⚠️ Insufficient learning data for {collection_name}: {len(learning_data)} records")
+                return
+            
+            # Calculate pattern performance
+            pattern_performance = self._calculate_pattern_performance(learning_data)
+            
+            # Update confidence scores
+            updated_count = 0
+            for intent, performance in pattern_performance.items():
+                if performance['count'] >= 5:  # Minimum usage threshold
+                    new_confidence = performance['avg_satisfaction'] / 5.0
+                    
+                    # Update pattern confidence
+                    result = self.qa_db.extended_qa_patterns.update_many(
+                        {
+                            "collection_name": collection_name,
+                            "answer_intent": intent
+                        },
+                        {
+                            "$set": {
+                                "confidence_score": new_confidence,
+                                "success_rate": performance['success_rate'],
+                                "updated_at": datetime.now()
+                            }
+                        }
+                    )
+                    
+                    if result.modified_count > 0:
+                        updated_count += result.modified_count
+            
+            print(f"✅ Patterns evolved for {collection_name}: {updated_count} patterns updated")
+            
+        except Exception as e:
+            print(f"⚠️ Failed to evolve patterns: {e}")
+    
+    def _calculate_pattern_performance(self, learning_data: List[Dict]) -> Dict[str, Any]:
+        """
+        Calculate performance metrics for each intent.
+        
+        Args:
+            learning_data: List of learning data records
+            
+        Returns:
+            Dictionary of performance metrics by intent
+        """
+        performance = {}
+        
+        for data in learning_data:
+            intent = data.get('detected_intent')
+            if not intent:
+                continue
+                
+            if intent not in performance:
+                performance[intent] = {
+                    'count': 0,
+                    'satisfaction_scores': [],
+                    'success_count': 0
+                }
+            
+            performance[intent]['count'] += 1
+            
+            if 'user_satisfaction' in data:
+                performance[intent]['satisfaction_scores'].append(data['user_satisfaction'])
+                
+                # Consider satisfaction >= 4 as successful
+                if data['user_satisfaction'] >= 4:
+                    performance[intent]['success_count'] += 1
+        
+        # Calculate averages
+        for intent, metrics in performance.items():
+            if metrics['satisfaction_scores']:
+                metrics['avg_satisfaction'] = sum(metrics['satisfaction_scores']) / len(metrics['satisfaction_scores'])
+                metrics['success_rate'] = metrics['success_count'] / metrics['count']
+            else:
+                metrics['avg_satisfaction'] = 0
+                metrics['success_rate'] = 0
+        
+        return performance
+    
+    def add_user_feedback(self, pattern_id: str, feedback_data: Dict[str, Any]):
+        """
+        Add user feedback for pattern improvement.
+        
+        Args:
+            pattern_id: ID of the pattern being rated
+            feedback_data: Dictionary containing feedback information
+        """
+        if self.qa_db is None:
+            print("⚠️ MongoDB not connected, cannot add feedback")
+            return
+        
+        try:
+            # Ensure required fields
+            feedback_data['created_at'] = datetime.now()
+            
+            # Insert feedback
+            result = self.qa_db.qa_pattern_feedback.insert_one(feedback_data)
+            print(f"✅ Feedback added for pattern {pattern_id}")
+            return result.inserted_id
+            
+        except Exception as e:
+            print(f"⚠️ Error adding feedback: {e}")
+            return None
+    
+    def get_pattern_analytics(self, collection_name: str) -> Dict[str, Any]:
+        """
+        Get analytics and performance metrics for patterns.
+        
+        Args:
+            collection_name: Name of the MongoDB collection
+            
+        Returns:
+            Dictionary containing analytics data
+        """
+        if self.qa_db is None:
+            return {}
+        
+        try:
+            analytics = {
+                'total_patterns': 0,
+                'active_patterns': 0,
+                'total_usage': 0,
+                'avg_confidence': 0,
+                'avg_success_rate': 0,
+                'intent_distribution': {},
+                'recent_feedback': []
+            }
+            
+            # Get pattern statistics
+            patterns = list(self.qa_db.extended_qa_patterns.find({"collection_name": collection_name}))
+            analytics['total_patterns'] = len(patterns)
+            analytics['active_patterns'] = len([p for p in patterns if p.get('is_active', False)])
+            
+            if patterns:
+                analytics['total_usage'] = sum(p.get('usage_count', 0) for p in patterns)
+                analytics['avg_confidence'] = sum(p.get('confidence_score', 0) for p in patterns) / len(patterns)
+                analytics['avg_success_rate'] = sum(p.get('success_rate', 0) for p in patterns) / len(patterns)
+                
+                # Intent distribution
+                for pattern in patterns:
+                    intent = pattern.get('answer_intent', 'unknown')
+                    if intent not in analytics['intent_distribution']:
+                        analytics['intent_distribution'][intent] = 0
+                    analytics['intent_distribution'][intent] += 1
+            
+            # Get recent feedback
+            recent_feedback = list(
+                self.qa_db.qa_pattern_feedback.find().sort("created_at", -1).limit(5)
+            )
+            analytics['recent_feedback'] = recent_feedback
+            
+            return analytics
+            
+        except Exception as e:
+            print(f"⚠️ Failed to get pattern analytics: {e}")
+            return {} 

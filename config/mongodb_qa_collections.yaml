@@ -1,0 +1,245 @@
+# MongoDB Q&A Collections Configuration
+# This file defines the collections used for dynamic Q&A patterns, feedback, and learning
+
+collections:
+  # Extended Q&A patterns collection for dynamic learning
+  extended_qa_patterns:
+    description: "Dynamic Q&A patterns that evolve based on user interactions"
+    indexes:
+      - field: "collection_name"
+        type: "text"
+        description: "Collection name for pattern matching"
+      - field: "question_pattern"
+        type: "text"
+        description: "Question pattern for matching"
+      - field: "intent"
+        type: "text"
+        description: "Detected intent category"
+      - field: "confidence_score"
+        type: "1"
+        description: "Confidence score for pattern matching"
+      - field: "usage_count"
+        type: "1"
+        description: "Number of times pattern was used"
+      - field: "success_rate"
+        type: "1"
+        description: "Success rate of pattern"
+      - field: "created_at"
+        type: "1"
+        description: "Pattern creation timestamp"
+      - field: "updated_at"
+        type: "1"
+        description: "Pattern last update timestamp"
+    
+    sample_data:
+      - collection_name: "ecoesTechDetailsWithEmbedding"
+        question_pattern: "mpan validation errors"
+        intent: "find_errors"
+        business_context: "MPAN validation error analysis"
+        expected_columns: ["type", "value"]
+        confidence_score: 0.95
+        usage_count: 25
+        success_rate: 0.92
+        created_at: "2024-01-01T00:00:00Z"
+        updated_at: "2024-01-15T00:00:00Z"
+        
+      - collection_name: "bevVE"
+        question_pattern: "battery electric vehicle range analysis"
+        intent: "range_analysis"
+        business_context: "BEV range analysis and comparison"
+        expected_columns: ["Vehicle_Make", "Vehicle_Model", "Range_WLTP", "Range_Real"]
+        confidence_score: 0.88
+        usage_count: 15
+        success_rate: 0.87
+        created_at: "2024-01-01T00:00:00Z"
+        updated_at: "2024-01-10T00:00:00Z"
+        
+      - collection_name: "bevVE"
+        question_pattern: "vehicle efficiency comparison"
+        intent: "efficiency_analysis"
+        business_context: "BEV efficiency and consumption analysis"
+        expected_columns: ["Vehicle_Make", "Vehicle_Model", "Efficiency_WLTP", "Efficiency_Consumption_WLTP"]
+        confidence_score: 0.91
+        usage_count: 12
+        success_rate: 0.89
+        created_at: "2024-01-01T00:00:00Z"
+        updated_at: "2024-01-12T00:00:00Z"
+        
+      - collection_name: "phevVE"
+        question_pattern: "hybrid vehicle efficiency analysis"
+        intent: "hybrid_efficiency_analysis"
+        business_context: "PHEV efficiency and fuel economy analysis"
+        expected_columns: ["Vehicle_Make", "Vehicle_Model", "Efficiency_WLTP", "ICE_Efficiency_WLTP"]
+        confidence_score: 0.89
+        usage_count: 18
+        success_rate: 0.85
+        created_at: "2024-01-01T00:00:00Z"
+        updated_at: "2024-01-14T00:00:00Z"
+        
+      - collection_name: "phevVE"
+        question_pattern: "electric vs gasoline mode comparison"
+        intent: "mode_comparison_analysis"
+        business_context: "PHEV electric and ICE mode performance comparison"
+        expected_columns: ["Vehicle_Make", "Vehicle_Model", "Range_WLTP", "ICE_Efficiency_WLTP"]
+        confidence_score: 0.93
+        usage_count: 22
+        success_rate: 0.91
+        created_at: "2024-01-01T00:00:00Z"
+        updated_at: "2024-01-16T00:00:00Z"
+
+  # User feedback collection for pattern improvement
+  qa_pattern_feedback:
+    description: "User feedback on Q&A pattern effectiveness and accuracy"
+    indexes:
+      - field: "collection_name"
+        type: "text"
+        description: "Collection name for feedback"
+      - field: "question_pattern"
+        type: "text"
+        description: "Question pattern that received feedback"
+      - field: "user_satisfaction"
+        type: "1"
+        description: "User satisfaction rating (1-5)"
+      - field: "feedback_type"
+        type: "text"
+        description: "Type of feedback (positive, negative, suggestion)"
+      - field: "created_at"
+        type: "1"
+        description: "Feedback timestamp"
+    
+    sample_data:
+      - collection_name: "ecoesTechDetailsWithEmbedding"
+        question_pattern: "mpan validation errors"
+        user_satisfaction: 5
+        feedback_type: "positive"
+        feedback_text: "Excellent analysis of MPAN errors"
+        created_at: "2024-01-15T10:30:00Z"
+        
+      - collection_name: "bevVE"
+        question_pattern: "battery electric vehicle range analysis"
+        user_satisfaction: 4
+        feedback_type: "suggestion"
+        feedback_text: "Could include more detailed range comparisons by driving mode"
+        created_at: "2024-01-14T14:20:00Z"
+        
+      - collection_name: "bevVE"
+        question_pattern: "vehicle efficiency comparison"
+        user_satisfaction: 5
+        feedback_type: "positive"
+        feedback_text: "Great insights into BEV efficiency patterns"
+        created_at: "2024-01-13T16:45:00Z"
+        
+      - collection_name: "phevVE"
+        question_pattern: "hybrid vehicle efficiency analysis"
+        user_satisfaction: 4
+        feedback_type: "suggestion"
+        feedback_text: "Would be helpful to see efficiency trends over time"
+        created_at: "2024-01-12T11:15:00Z"
+        
+      - collection_name: "phevVE"
+        question_pattern: "electric vs gasoline mode comparison"
+        user_satisfaction: 5
+        feedback_type: "positive"
+        feedback_text: "Excellent comparison between electric and ICE modes"
+        created_at: "2024-01-11T09:30:00Z"
+
+  # Intent learning data collection for pattern evolution
+  intent_learning_data:
+    description: "Learning data from user queries to improve intent detection"
+    indexes:
+      - field: "collection_name"
+        type: "text"
+        description: "Collection name for learning data"
+      - field: "user_query"
+        type: "text"
+        description: "Original user query"
+      - field: "detected_intent"
+        type: "text"
+        description: "Detected intent from query"
+      - field: "query_features"
+        type: "object"
+        description: "Extracted features from query"
+      - field: "session_id"
+        type: "text"
+        description: "User session identifier"
+      - field: "created_at"
+        type: "1"
+        description: "Learning data timestamp"
+    
+    sample_data:
+      - collection_name: "ecoesTechDetailsWithEmbedding"
+        user_query: "show me common mpan validation errors"
+        detected_intent: "find_errors"
+        query_features:
+          keywords: ["common", "mpan", "validation", "errors"]
+          business_entities: ["MPAN", "validation", "error"]
+          query_type: "error_analysis"
+        session_id: "session_001"
+        created_at: "2024-01-15T09:15:00Z"
+        
+      - collection_name: "bevVE"
+        user_query: "analyze battery electric vehicle range trends"
+        detected_intent: "range_analysis"
+        query_features:
+          keywords: ["analyze", "battery", "electric", "vehicle", "range", "trends"]
+          business_entities: ["battery", "electric", "vehicle", "range", "trend"]
+          query_type: "range_analysis"
+        session_id: "session_002"
+        created_at: "2024-01-15T11:20:00Z"
+        
+      - collection_name: "bevVE"
+        user_query: "compare BEV efficiency across different models"
+        detected_intent: "efficiency_analysis"
+        query_features:
+          keywords: ["compare", "bev", "efficiency", "different", "models"]
+          business_entities: ["BEV", "efficiency", "model"]
+          query_type: "efficiency_analysis"
+        session_id: "session_003"
+        created_at: "2024-01-15T13:45:00Z"
+        
+      - collection_name: "phevVE"
+        user_query: "hybrid vehicle fuel economy analysis"
+        detected_intent: "fuel_economy_analysis"
+        query_features:
+          keywords: ["hybrid", "vehicle", "fuel", "economy", "analysis"]
+          business_entities: ["hybrid", "vehicle", "fuel", "economy"]
+          query_type: "fuel_economy_analysis"
+        session_id: "session_004"
+        created_at: "2024-01-15T15:10:00Z"
+        
+      - collection_name: "phevVE"
+        user_query: "compare PHEV electric range vs gasoline efficiency"
+        detected_intent: "mode_comparison_analysis"
+        query_features:
+          keywords: ["compare", "phev", "electric", "range", "gasoline", "efficiency"]
+          business_entities: ["PHEV", "electric", "range", "gasoline", "efficiency"]
+          query_type: "mode_comparison_analysis"
+        session_id: "session_005"
+        created_at: "2024-01-15T17:25:00Z"
+
+# Global Q&A settings
+global_qa_settings:
+  # Pattern evolution settings
+  pattern_evolution:
+    min_usage_count: 5
+    min_success_rate: 0.7
+    evolution_interval_hours: 24
+    max_patterns_per_collection: 20
+    
+  # Feedback collection settings
+  feedback_collection:
+    enable_automatic_feedback: true
+    feedback_prompt_interval: 10
+    min_feedback_rating: 3
+    
+  # Intent learning settings
+  intent_learning:
+    enable_automatic_learning: true
+    learning_threshold: 0.8
+    max_learning_records: 1000
+    
+  # Performance monitoring
+  performance_monitoring:
+    enable_metrics_collection: true
+    metrics_retention_days: 30
+    alert_threshold_success_rate: 0.6 

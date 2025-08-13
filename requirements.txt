@@ -37,3 +37,5 @@ PyYAML>=6.0
 pymongo 
 langchain-mongodb 
 langchain-openai
+
+psutil>=5.8.0

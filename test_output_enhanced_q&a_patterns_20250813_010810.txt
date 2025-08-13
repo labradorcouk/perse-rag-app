@@ -1,0 +1,15 @@
+Test: Enhanced Q&A Patterns
+Description: Tests basic Q&A pattern matching functionality
+Success: False
+Duration: 2.03s
+Timestamp: 2025-08-13T01:08:10.084054
+
+==================================================
+OUTPUT:
+==================================================
+Traceback (most recent call last):
+  File "C:\Users\MIRZA MAWAZ KHAN\Downloads\Perse Energy\2. Adhoc Projects\18. Fabric RAG\utils\tests\test_enhanced_qa_patterns.py", line 11, in <module>
+    from mongodb_schema_manager import MongoDBSchemaManager
+  File "C:\Users\MIRZA MAWAZ KHAN\Downloads\Perse Energy\2. Adhoc Projects\18. Fabric RAG\utils\mongodb_schema_manager.py", line 7, in <module>
+    from pymongo import MongoClient
+ModuleNotFoundError: No module named 'pymongo'

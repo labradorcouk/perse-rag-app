@@ -1,0 +1,32 @@
+Dynamic Learning System - Comprehensive Test Report
+============================================================
+Generated: 2025-08-13T01:08:14.125908
+Total Tests: 4
+Passed: 0
+Failed: 4
+Success Rate: 0.0%
+Total Duration: 6.05s
+Average Duration: 1.51s per test
+
+DETAILED RESULTS:
+----------------------------------------
+FAIL Enhanced Q&A Patterns (2.03s)
+Output: Traceback (most recent call last):
+  File "C:\Users\MIRZA MAWAZ KHAN\Downloads\Perse Energy\2. Adhoc Projects\18. Fabric RAG\utils\tests\test_enhanced_qa_patterns.py", line 11, in <module>
+    from mo...
+
+FAIL Dynamic Learning (1.27s)
+Output: Traceback (most recent call last):
+  File "C:\Users\MIRZA MAWAZ KHAN\Downloads\Perse Energy\2. Adhoc Projects\18. Fabric RAG\utils\tests\test_dynamic_learning.py", line 11, in <module>
+    from mongod...
+
+FAIL Comprehensive Dynamic Learning (1.38s)
+Output: Traceback (most recent call last):
+  File "C:\Users\MIRZA MAWAZ KHAN\Downloads\Perse Energy\2. Adhoc Projects\18. Fabric RAG\utils\tests\test_comprehensive_dynamic_learning.py", line 17, in <module>
+ ...
+
+FAIL Integration Tests (1.37s)
+Output: Traceback (most recent call last):
+  File "C:\Users\MIRZA MAWAZ KHAN\Downloads\Perse Energy\2. Adhoc Projects\18. Fabric RAG\utils\tests\test_integration.py", line 16, in <module>
+    from mongodb_sch...
+

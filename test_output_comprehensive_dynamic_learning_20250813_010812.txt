@@ -1,0 +1,15 @@
+Test: Comprehensive Dynamic Learning
+Description: Comprehensive test suite for all dynamic learning features
+Success: False
+Duration: 1.38s
+Timestamp: 2025-08-13T01:08:12.750982
+
+==================================================
+OUTPUT:
+==================================================
+Traceback (most recent call last):
+  File "C:\Users\MIRZA MAWAZ KHAN\Downloads\Perse Energy\2. Adhoc Projects\18. Fabric RAG\utils\tests\test_comprehensive_dynamic_learning.py", line 17, in <module>
+    from mongodb_schema_manager import MongoDBSchemaManager
+  File "C:\Users\MIRZA MAWAZ KHAN\Downloads\Perse Energy\2. Adhoc Projects\18. Fabric RAG\utils\mongodb_schema_manager.py", line 7, in <module>
+    from pymongo import MongoClient
+ModuleNotFoundError: No module named 'pymongo'

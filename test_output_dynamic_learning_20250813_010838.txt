@@ -1,0 +1,15 @@
+Test: Dynamic Learning
+Description: Tests dynamic learning and pattern evolution
+Success: False
+Duration: 1.10s
+Timestamp: 2025-08-13T01:08:38.374396
+
+==================================================
+OUTPUT:
+==================================================
+Traceback (most recent call last):
+  File "C:\Users\MIRZA MAWAZ KHAN\Downloads\Perse Energy\2. Adhoc Projects\18. Fabric RAG\utils\tests\test_dynamic_learning.py", line 11, in <module>
+    from mongodb_schema_manager import MongoDBSchemaManager
+  File "C:\Users\MIRZA MAWAZ KHAN\Downloads\Perse Energy\2. Adhoc Projects\18. Fabric RAG\utils\mongodb_schema_manager.py", line 7, in <module>
+    from pymongo import MongoClient
+ModuleNotFoundError: No module named 'pymongo'

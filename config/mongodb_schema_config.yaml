@@ -20,13 +20,104 @@ mongodb_collections:
       ]
       key_entities: ["MPAN", "meter", "supplier", "postcode", "error"]
     
+    # Enhanced Question/Answer Patterns for Intent Understanding
+    question_answer_patterns:
+      # Core patterns (always available, fast access)
+      core_patterns:
+        - question_pattern: "What are the most common errors in MPAN records?"
+          answer_intent: "find_errors"
+          business_entities: ["MPAN", "error", "validation"]
+          expected_columns: ["type", "value", "Results"]
+          search_strategy: "error_analysis"
+          sample_queries: [
+            "show me common MPAN errors",
+            "what errors occur most frequently",
+            "find the top error types"
+          ]
+          
+        - question_pattern: "Analyze error patterns in MPAN data"
+          answer_intent: "analyze_patterns"
+          business_entities: ["MPAN", "error", "pattern", "trend"]
+          expected_columns: ["type", "value", "createdAt_date"]
+          search_strategy: "pattern_analysis"
+          sample_queries: [
+            "what patterns exist in MPAN errors",
+            "show me error trends",
+            "analyze error distribution"
+          ]
+          
+        - question_pattern: "Find MPAN records by postcode location"
+          answer_intent: "location_based_search"
+          business_entities: ["MPAN", "postcode", "location", "address"]
+          expected_columns: ["value", "Results"]
+          search_strategy: "location_search"
+          sample_queries: [
+            "find MPANs in specific area",
+            "show me records by postcode",
+            "MPAN records by location"
+          ]
+          
+        - question_pattern: "Show supplier information for MPAN records"
+          answer_intent: "supplier_analysis"
+          business_entities: ["MPAN", "supplier", "company"]
+          expected_columns: ["value", "Results"]
+          search_strategy: "supplier_search"
+          sample_queries: [
+            "which suppliers have MPAN issues",
+            "show supplier MPAN records",
+            "analyze supplier performance"
+          ]
+          
+        - question_pattern: "What are the validation failures in MPAN data?"
+          answer_intent: "validation_analysis"
+          business_entities: ["MPAN", "validation", "failure", "error"]
+          expected_columns: ["type", "value", "Results"]
+          search_strategy: "validation_search"
+          sample_queries: [
+            "show validation failures",
+            "what validation errors exist",
+            "MPAN validation issues"
+          ]
+      
+      # Intent categories for better understanding
+      intent_categories:
+        find_errors:
+          description: "Questions about finding and identifying errors"
+          keywords: ["error", "issue", "problem", "failure", "wrong", "invalid"]
+          business_context: "Error identification and troubleshooting"
+          expected_output: "List of errors with counts and details"
+          
+        analyze_patterns:
+          description: "Questions about analyzing patterns and trends"
+          keywords: ["pattern", "trend", "common", "frequent", "analysis", "distribution"]
+          business_context: "Pattern recognition and trend analysis"
+          expected_output: "Statistical analysis and pattern identification"
+          
+        location_based_search:
+          description: "Questions about geographic or location-based queries"
+          keywords: ["postcode", "area", "region", "location", "address", "geographic"]
+          business_context: "Geographic data analysis and location-based insights"
+          expected_output: "Location-filtered results with geographic context"
+          
+        supplier_analysis:
+          description: "Questions about supplier-related information"
+          keywords: ["supplier", "company", "provider", "energy company", "utility"]
+          business_context: "Supplier performance and relationship analysis"
+          expected_output: "Supplier-focused analysis and insights"
+          
+        validation_analysis:
+          description: "Questions about data validation and quality"
+          keywords: ["validation", "quality", "integrity", "check", "verify"]
+          business_context: "Data quality assessment and validation monitoring"
+          expected_output: "Validation results and quality metrics"
+    
     # Data dictionary with semantic descriptions
     data_dictionary:
       _id_oid:
         type: "string"
         description: "MongoDB Object ID as string"
         business_meaning: "Unique identifier for each MPAN record"
-        include_in_context: true
+        include_in_context: false
         max_length: 50
         search_relevance: "low"  # Not useful for business queries
         
@@ -54,7 +145,7 @@ mongodb_collections:
         type: "complex"
         description: "Complex nested results structure containing detailed MPAN information"
         business_meaning: "Detailed technical results including meter details, address, supplier info, and validation results"
-        include_in_context: false  # Exclude from context due to size
+        include_in_context: true  # Exclude from context due to size
         max_length: 50  # If included, limit to 50 chars
         search_relevance: "medium"
         semantic_keywords: ["meter details", "address", "supplier", "validation results", "technical data"]
@@ -142,6 +233,8 @@ mongodb_collections:
     # Query understanding and enhancement
     query_enhancement:
       enable_semantic_expansion: true
+      enable_intent_detection: true  # New: Enable intent detection
+      enable_qa_pattern_matching: true  # New: Enable Q&A pattern matching
       business_aliases: {
         "MPAN": ["meter point", "meter number", "energy meter", "electricity meter"],
         "error": ["issue", "problem", "failure", "validation error", "technical issue"],
@@ -155,6 +248,1836 @@ mongodb_collections:
         "supplier_info": ["supplier", "company", "provider", "energy company"]
       }
 
+  bevVE:
+    display_name: "Battery Electric Vehicle with Embedding"
+    description: "Battery Electric Vehicle data with vector embeddings for analysis"
+    
+    # Collection name mapping to handle system expectations
+    collection_mapping:
+      system_name: "bev"
+      actual_name: "bevVE"
+    
+    # Column name mapping to handle PySpark schema typos
+    column_aliases:
+      "Vehicle_model_Version": "Vehicle_Model_Version"
+      "Rage_Real_WCmb": "Range_Real_WCmb"
+      "Efficiency_RealBCty": "Efficiency_Real_BCty"
+    
+    # Business context and use cases
+    business_context:
+      domain: "Automotive and Electric Vehicles"
+      purpose: "BEV performance analysis, range comparison, and market insights"
+      common_queries: [
+        "Compare BEV range across different models",
+        "Analyze battery capacity and efficiency",
+        "Find vehicles by make and model",
+        "Compare WLTP vs Real-world performance",
+        "Analyze charging efficiency and consumption"
+      ]
+      key_entities: ["BEV", "battery", "range", "efficiency", "vehicle", "performance"]
+    
+    # Enhanced Question/Answer Patterns for Intent Understanding
+    question_answer_patterns:
+      # Core patterns (always available, fast access)
+      core_patterns:
+        - question_pattern: "What are the best performing BEVs by range?"
+          answer_intent: "range_analysis"
+          business_entities: ["BEV", "range", "performance", "comparison"]
+          expected_columns: ["Vehicle_Make", "Vehicle_Model", "Range_WLTP", "Range_Real"]
+          search_strategy: "range_comparison"
+          sample_queries: [
+            "show me BEVs with longest range",
+            "which electric cars have best range",
+            "compare BEV range performance"
+          ]
+          
+        - question_pattern: "Analyze battery capacity across different BEV models"
+          answer_intent: "battery_analysis"
+          business_entities: ["BEV", "battery", "capacity", "model"]
+          expected_columns: ["Vehicle_Make", "Vehicle_Model", "Battery_Capacity_Useable", "Battery_Capacity_Full"]
+          search_strategy: "battery_comparison"
+          sample_queries: [
+            "compare battery sizes in electric cars",
+            "which BEVs have largest batteries",
+            "battery capacity analysis by model"
+          ]
+          
+        - question_pattern: "Compare efficiency between different BEV manufacturers"
+          answer_intent: "efficiency_analysis"
+          business_entities: ["BEV", "efficiency", "manufacturer", "comparison"]
+          expected_columns: ["Vehicle_Make", "Vehicle_Model", "Efficiency_WLTP", "Efficiency_Consumption_WLTP"]
+          search_strategy: "efficiency_comparison"
+          sample_queries: [
+            "which brands make most efficient BEVs",
+            "compare efficiency across manufacturers",
+            "BEV efficiency by brand analysis"
+          ]
+          
+        - question_pattern: "Find BEVs available in specific date range"
+          answer_intent: "availability_analysis"
+          business_entities: ["BEV", "availability", "date", "timeline"]
+          expected_columns: ["Vehicle_Make", "Vehicle_Model", "Availability_Status", "Availability_Date_From"]
+          search_strategy: "availability_search"
+          sample_queries: [
+            "BEVs available from specific date",
+            "find electric cars launching soon",
+            "availability timeline for BEVs"
+          ]
+          
+        - question_pattern: "Analyze real-world vs WLTP performance differences"
+          answer_intent: "performance_analysis"
+          business_entities: ["BEV", "performance", "WLTP", "real_world", "difference"]
+          expected_columns: ["Vehicle_Make", "Vehicle_Model", "Range_WLTP", "Range_Real", "Efficiency_WLTP", "Efficiency_Real"]
+          search_strategy: "performance_comparison"
+          sample_queries: [
+            "WLTP vs real range comparison",
+            "how accurate are WLTP estimates",
+            "real-world BEV performance analysis"
+          ]
+      
+      # Intent categories for better understanding
+      intent_categories:
+        range_analysis:
+          description: "Questions about vehicle range and distance capabilities"
+          keywords: ["range", "distance", "miles", "kilometers", "endurance", "travel"]
+          business_context: "Range analysis and comparison for BEV selection"
+          expected_output: "Range comparison with vehicle details"
+          
+        battery_analysis:
+          description: "Questions about battery capacity and performance"
+          keywords: ["battery", "capacity", "kWh", "energy", "storage", "power"]
+          business_context: "Battery performance and capacity analysis"
+          expected_output: "Battery capacity comparison and analysis"
+          
+        efficiency_analysis:
+          description: "Questions about energy efficiency and consumption"
+          keywords: ["efficiency", "consumption", "economy", "miles/kWh", "energy use"]
+          business_context: "Energy efficiency analysis and comparison"
+          expected_output: "Efficiency metrics and comparisons"
+          
+        availability_analysis:
+          description: "Questions about vehicle availability and timelines"
+          keywords: ["available", "launch", "release", "timeline", "when", "date"]
+          business_context: "Market availability and launch timing"
+          expected_output: "Availability information and timelines"
+          
+        performance_analysis:
+          description: "Questions about overall vehicle performance metrics"
+          keywords: ["performance", "metrics", "benchmark", "comparison", "analysis"]
+          business_context: "Performance benchmarking and analysis"
+          expected_output: "Performance metrics and comparisons"
+    
+    # Data dictionary with semantic descriptions
+    data_dictionary:
+      Vehicle_ID:
+        type: "integer"
+        description: "Unique identifier for each vehicle"
+        business_meaning: "Primary key for vehicle identification"
+        include_in_context: false
+        max_length: 10
+        search_relevance: "low"
+        
+      Vehicle_Make:
+        type: "string"
+        description: "Manufacturer brand name"
+        business_meaning: "Car manufacturer (e.g., Tesla, BMW, Audi)"
+        include_in_context: true
+        max_length: 50
+        search_relevance: "high"
+        semantic_keywords: ["brand", "manufacturer", "make", "company"]
+        
+      Vehicle_Model:
+        type: "string"
+        description: "Specific model name"
+        business_meaning: "Vehicle model designation (e.g., Model 3, i4, e-tron)"
+        include_in_context: true
+        max_length: 100
+        search_relevance: "high"
+        semantic_keywords: ["model", "name", "designation", "variant"]
+        
+      Vehicle_Model_Version:
+        type: "string"
+        description: "Specific model version or trim level"
+        business_meaning: "Model variant or trim specification (e.g., Long Range, Performance, Premium)"
+        include_in_context: true
+        max_length: 100
+        search_relevance: "medium"
+        semantic_keywords: ["version", "trim", "variant", "specification", "level"]
+        
+      Availability_Status:
+        type: "integer"
+        description: "Vehicle availability status code"
+        business_meaning: "Current availability status (e.g., 1=Available, 2=Coming Soon, 3=Discontinued)"
+        include_in_context: true
+        max_length: 5
+        search_relevance: "medium"
+        semantic_keywords: ["status", "availability", "available", "coming soon", "discontinued"]
+        
+      Availability_Date_From:
+        type: "string"
+        description: "Vehicle availability start date"
+        business_meaning: "When the vehicle becomes available for purchase"
+        include_in_context: true
+        max_length: 20
+        search_relevance: "medium"
+        semantic_keywords: ["available", "launch", "release", "start date", "timeline"]
+        
+      Availability_Date_From_Estimate:
+        type: "boolean"
+        description: "Whether availability date is estimated"
+        business_meaning: "Indicates if the availability date is confirmed or estimated"
+        include_in_context: false
+        max_length: 5
+        search_relevance: "low"
+        semantic_keywords: ["estimate", "confirmed", "tentative", "approximate"]
+        
+      Availability_Date_To:
+        type: "string"
+        description: "Vehicle availability end date"
+        business_meaning: "When the vehicle stops being available for purchase"
+        include_in_context: true
+        max_length: 20
+        search_relevance: "medium"
+        semantic_keywords: ["end date", "discontinued", "last available", "final date"]
+        
+      Range_WLTP:
+        type: "string"
+        description: "WLTP certified range"
+        business_meaning: "Official WLTP test cycle range in kilometers"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "high"
+        semantic_keywords: ["WLTP", "range", "certified", "official", "test cycle"]
+        
+      Range_WLTP_Estimate:
+        type: "boolean"
+        description: "Whether WLTP range is estimated"
+        business_meaning: "Indicates if the WLTP range is confirmed or estimated"
+        include_in_context: false
+        max_length: 5
+        search_relevance: "low"
+        semantic_keywords: ["estimate", "confirmed", "tentative", "approximate"]
+        
+      Range_WLTP_TEH:
+        type: "string"
+        description: "WLTP range with trailer/extra high load"
+        business_meaning: "WLTP range when towing or carrying extra high load"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "range", "trailer", "towing", "extra load", "high load"]
+        
+      Range_NEDC:
+        type: "integer"
+        description: "NEDC certified range"
+        business_meaning: "Official NEDC test cycle range in kilometers"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["NEDC", "range", "certified", "official", "test cycle", "old standard"]
+        
+      Range_NEDC_Estimate:
+        type: "boolean"
+        description: "Whether NEDC range is estimated"
+        business_meaning: "Indicates if the NEDC range is confirmed or estimated"
+        include_in_context: false
+        max_length: 5
+        search_relevance: "low"
+        semantic_keywords: ["estimate", "confirmed", "tentative", "approximate"]
+        
+      Range_Real:
+        type: "integer"
+        description: "Real-world range estimate"
+        business_meaning: "Estimated real-world driving range in kilometers"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "high"
+        semantic_keywords: ["real", "actual", "practical", "real-world", "estimate"]
+        
+      Range_Real_Mode:
+        type: "string"
+        description: "Real-world range driving mode"
+        business_meaning: "Driving mode used for real-world range testing"
+        include_in_context: true
+        max_length: 20
+        search_relevance: "medium"
+        semantic_keywords: ["driving mode", "real world", "test mode", "conditions"]
+        
+      Range_Real_WHwy:
+        type: "integer"
+        description: "Real-world range in warm highway conditions"
+        business_meaning: "Real-world range when driving on highway in warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["real world", "highway", "warm", "range", "conditions"]
+        
+      Range_Real_WCmb:
+        type: "integer"
+        description: "Real-world range in warm combined conditions"
+        business_meaning: "Real-world range in mixed driving conditions with warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["real world", "combined", "warm", "range", "mixed driving"]
+        
+      Range_Real_WCty:
+        type: "integer"
+        description: "Real-world range in warm city conditions"
+        business_meaning: "Real-world range when driving in city with warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["real world", "city", "warm", "range", "urban driving"]
+        
+      Range_Real_BHwy:
+        type: "integer"
+        description: "Real-world range in cold highway conditions"
+        business_meaning: "Real-world range when driving on highway in cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["real world", "highway", "cold", "range", "conditions"]
+        
+      Range_Real_BCmb:
+        type: "integer"
+        description: "Real-world range in cold combined conditions"
+        business_meaning: "Real-world range in mixed driving conditions with cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["real world", "combined", "cold", "range", "mixed driving"]
+        
+      Range_Real_BCty:
+        type: "integer"
+        description: "Real-world range in cold city conditions"
+        business_meaning: "Real-world range when driving in city with cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["real world", "city", "cold", "range", "urban driving"]
+        
+      Efficiency_WLTP:
+        type: "string"
+        description: "WLTP efficiency rating"
+        business_meaning: "Energy efficiency in miles per kilowatt-hour (WLTP)"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "high"
+        semantic_keywords: ["efficiency", "WLTP", "miles/kWh", "energy efficiency"]
+        
+      Efficiency_Economy_WLTP:
+        type: "string"
+        description: "WLTP economy rating"
+        business_meaning: "Fuel economy equivalent in WLTP test cycle"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["economy", "WLTP", "fuel economy", "equivalent", "mpg"]
+        
+      Efficiency_Consumption_WLTP:
+        type: "string"
+        description: "WLTP energy consumption rating"
+        business_meaning: "Energy consumption in kilowatt-hours per 100km (WLTP)"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["consumption", "WLTP", "energy use", "kWh/100km", "efficiency"]
+        
+      Efficiency_WLTP_FuelEq:
+        type: "string"
+        description: "WLTP fuel equivalent efficiency"
+        business_meaning: "Fuel equivalent efficiency in WLTP test cycle"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["fuel equivalent", "WLTP", "gasoline equivalent", "mpg equivalent"]
+        
+      Efficiency_WLTP_V:
+        type: "string"
+        description: "WLTP efficiency with variable conditions"
+        business_meaning: "WLTP efficiency considering variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "efficiency", "variable", "conditions", "dynamic"]
+        
+      Efficiency_Economy_WLTP_V:
+        type: "string"
+        description: "WLTP economy with variable conditions"
+        business_meaning: "WLTP economy considering variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "economy", "variable", "conditions", "dynamic"]
+        
+      Efficiency_Consumption_WLTP_V:
+        type: "string"
+        description: "WLTP consumption with variable conditions"
+        business_meaning: "WLTP consumption considering variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "consumption", "variable", "conditions", "dynamic"]
+        
+      Efficiency_WLTP_FuelEq_V:
+        type: "string"
+        description: "WLTP fuel equivalent with variable conditions"
+        business_meaning: "WLTP fuel equivalent considering variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "fuel equivalent", "variable", "conditions", "dynamic"]
+        
+      Efficiency_WLTP_CO2:
+        type: "string"
+        description: "WLTP CO2 emissions rating"
+        business_meaning: "Carbon dioxide emissions in grams per kilometer (WLTP)"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["CO2", "emissions", "WLTP", "carbon dioxide", "g/km"]
+        
+      Efficiency_WLTP_TEH:
+        type: "string"
+        description: "WLTP efficiency with trailer/extra high load"
+        business_meaning: "WLTP efficiency when towing or carrying extra high load"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "efficiency", "trailer", "towing", "extra load", "high load"]
+        
+      Efficiency_Economy_WLTP_TEH:
+        type: "string"
+        description: "WLTP economy with trailer/extra high load"
+        business_meaning: "WLTP economy when towing or carrying extra high load"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "economy", "trailer", "towing", "extra load", "high load"]
+        
+      Efficiency_Consumption_WLTP_TEH:
+        type: "string"
+        description: "WLTP consumption with trailer/extra high load"
+        business_meaning: "WLTP consumption when towing or carrying extra high load"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "consumption", "trailer", "towing", "extra load", "high load"]
+        
+      Efficiency_WLTP_TEH_FuelEq:
+        type: "string"
+        description: "WLTP fuel equivalent with trailer/extra high load"
+        business_meaning: "WLTP fuel equivalent when towing or carrying extra high load"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "fuel equivalent", "trailer", "towing", "extra load", "high load"]
+        
+      Efficiency_WLTP_TEH_V:
+        type: "string"
+        description: "WLTP efficiency with trailer/extra high load and variable conditions"
+        business_meaning: "WLTP efficiency when towing with variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "efficiency", "trailer", "towing", "variable", "conditions"]
+        
+      Efficiency_Economy_WLTP_TEH_V:
+        type: "string"
+        description: "WLTP economy with trailer/extra high load and variable conditions"
+        business_meaning: "WLTP economy when towing with variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "economy", "trailer", "towing", "variable", "conditions"]
+        
+      Efficiency_Consumption_WLTP_TEH_V:
+        type: "string"
+        description: "WLTP consumption with trailer/extra high load and variable conditions"
+        business_meaning: "WLTP consumption when towing with variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "consumption", "trailer", "towing", "variable", "conditions"]
+        
+      Efficiency_WLTP_TEH_FuelEq_V:
+        type: "string"
+        description: "WLTP fuel equivalent with trailer/extra high load and variable conditions"
+        business_meaning: "WLTP fuel equivalent when towing with variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "fuel equivalent", "trailer", "towing", "variable", "conditions"]
+        
+      Efficiency_WLTP_TEH_CO2:
+        type: "string"
+        description: "WLTP CO2 emissions with trailer/extra high load"
+        business_meaning: "WLTP CO2 emissions when towing or carrying extra high load"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "CO2", "emissions", "trailer", "towing", "extra load"]
+        
+      Efficiency_NEDC:
+        type: "string"
+        description: "NEDC efficiency rating"
+        business_meaning: "Energy efficiency in miles per kilowatt-hour (NEDC)"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["efficiency", "NEDC", "miles/kWh", "energy efficiency", "old standard"]
+        
+      Efficiency_Economy_NEDC:
+        type: "string"
+        description: "NEDC economy rating"
+        business_meaning: "Fuel economy equivalent in NEDC test cycle"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["economy", "NEDC", "fuel economy", "equivalent", "mpg", "old standard"]
+        
+      Efficiency_Consumption_NEDC:
+        type: "string"
+        description: "NEDC energy consumption rating"
+        business_meaning: "Energy consumption in kilowatt-hours per 100km (NEDC)"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["consumption", "NEDC", "energy use", "kWh/100km", "efficiency", "old standard"]
+        
+      Efficiency_NEDC_FuelEq:
+        type: "string"
+        description: "NEDC fuel equivalent efficiency"
+        business_meaning: "Fuel equivalent efficiency in NEDC test cycle"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["fuel equivalent", "NEDC", "gasoline equivalent", "mpg equivalent", "old standard"]
+        
+      Efficiency_NEDC_V:
+        type: "string"
+        description: "NEDC efficiency with variable conditions"
+        business_meaning: "NEDC efficiency considering variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["NEDC", "efficiency", "variable", "conditions", "dynamic", "old standard"]
+        
+      Efficiency_Economy_NEDC_V:
+        type: "string"
+        description: "NEDC economy with variable conditions"
+        business_meaning: "NEDC economy considering variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["NEDC", "economy", "variable", "conditions", "dynamic", "old standard"]
+        
+      Efficiency_Consumption_NEDC_V:
+        type: "string"
+        description: "NEDC consumption with variable conditions"
+        business_meaning: "NEDC consumption considering variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["NEDC", "consumption", "variable", "conditions", "dynamic", "old standard"]
+        
+      Efficiency_NEDC_FuelEq_V:
+        type: "string"
+        description: "NEDC fuel equivalent with variable conditions"
+        business_meaning: "NEDC fuel equivalent considering variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["NEDC", "fuel equivalent", "variable", "conditions", "dynamic", "old standard"]
+        
+      Efficiency_NEDC_CO2:
+        type: "string"
+        description: "NEDC CO2 emissions rating"
+        business_meaning: "Carbon dioxide emissions in grams per kilometer (NEDC)"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["CO2", "emissions", "NEDC", "carbon dioxide", "g/km", "old standard"]
+        
+      Efficiency_Real:
+        type: "string"
+        description: "Real-world efficiency rating"
+        business_meaning: "Energy efficiency in real-world driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "high"
+        semantic_keywords: ["efficiency", "real world", "actual", "practical", "real conditions"]
+        
+      Efficiency_Economy_Real:
+        type: "string"
+        description: "Real-world economy rating"
+        business_meaning: "Fuel economy equivalent in real-world driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["economy", "real world", "actual", "practical", "fuel economy"]
+        
+      Efficiency_Consumption_Real:
+        type: "string"
+        description: "Real-world energy consumption rating"
+        business_meaning: "Energy consumption in real-world driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["consumption", "real world", "actual", "practical", "energy use"]
+        
+      Efficiency_Real_FuelEq_V:
+        type: "string"
+        description: "Real-world fuel equivalent efficiency"
+        business_meaning: "Fuel equivalent efficiency in real-world driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["fuel equivalent", "real world", "actual", "practical", "gasoline equivalent"]
+        
+      Efficiency_Real_CO2:
+        type: "string"
+        description: "Real-world CO2 emissions rating"
+        business_meaning: "Carbon dioxide emissions in real-world driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["CO2", "emissions", "real world", "actual", "practical", "carbon dioxide"]
+        
+      Efficiency_Real_WHwy:
+        type: "string"
+        description: "Real-world efficiency in warm highway conditions"
+        business_meaning: "Energy efficiency when driving on highway in warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["efficiency", "real world", "highway", "warm", "conditions"]
+        
+      Efficiency_Real_WCmb:
+        type: "string"
+        description: "Real-world efficiency in warm combined conditions"
+        business_meaning: "Energy efficiency in mixed driving conditions with warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["efficiency", "real world", "combined", "warm", "mixed driving"]
+        
+      Efficiency_Real_WCty:
+        type: "string"
+        description: "Real-world efficiency in warm city conditions"
+        business_meaning: "Energy efficiency when driving in city with warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["efficiency", "real world", "city", "warm", "urban driving"]
+        
+      Efficiency_Real_BHwy:
+        type: "string"
+        description: "Real-world efficiency in cold highway conditions"
+        business_meaning: "Energy efficiency when driving on highway in cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["efficiency", "real world", "highway", "cold", "conditions"]
+        
+      Efficiency_Real_BCmb:
+        type: "string"
+        description: "Real-world efficiency in cold combined conditions"
+        business_meaning: "Energy efficiency in mixed driving conditions with cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["efficiency", "real world", "combined", "cold", "mixed driving"]
+        
+      Efficiency_Real_BCty:
+        type: "string"
+        description: "Real-world efficiency in cold city conditions"
+        business_meaning: "Energy efficiency when driving in city with cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["efficiency", "real world", "city", "cold", "urban driving"]
+        
+      Efficiency_Economy_Real_WHwy:
+        type: "string"
+        description: "Real-world economy in warm highway conditions"
+        business_meaning: "Fuel economy when driving on highway in warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["economy", "real world", "highway", "warm", "fuel economy"]
+        
+      Efficiency_Economy_Real_WCmb:
+        type: "string"
+        description: "Real-world economy in warm combined conditions"
+        business_meaning: "Fuel economy in mixed driving conditions with warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["economy", "real world", "combined", "warm", "fuel economy", "mixed driving"]
+        
+      Efficiency_Economy_Real_WCty:
+        type: "string"
+        description: "Real-world economy in warm city conditions"
+        business_meaning: "Fuel economy when driving in city with warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["economy", "real world", "city", "warm", "fuel economy", "urban driving"]
+        
+      Efficiency_Economy_Real_BHwy:
+        type: "string"
+        description: "Real-world economy in cold highway conditions"
+        business_meaning: "Fuel economy when driving on highway in cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["economy", "real world", "highway", "cold", "fuel economy"]
+        
+      Efficiency_Economy_Real_BCmb:
+        type: "string"
+        description: "Real-world economy in cold combined conditions"
+        business_meaning: "Fuel economy in mixed driving conditions with cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["economy", "real world", "combined", "cold", "fuel economy", "mixed driving"]
+        
+      Efficiency_Economy_Real_BCty:
+        type: "string"
+        description: "Real-world economy in cold city conditions"
+        business_meaning: "Fuel economy when driving in city with cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["economy", "real world", "city", "cold", "fuel economy", "urban driving"]
+        
+      Efficiency_Consumption_Real_WHwy:
+        type: "string"
+        description: "Real-world consumption in warm highway conditions"
+        business_meaning: "Energy consumption when driving on highway in warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["consumption", "real world", "highway", "warm", "energy use"]
+        
+      Efficiency_Consumption_Real_WCmb:
+        type: "string"
+        description: "Real-world consumption in warm combined conditions"
+        business_meaning: "Energy consumption in mixed driving conditions with warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["consumption", "real world", "combined", "warm", "energy use", "mixed driving"]
+        
+      Efficiency_Consumption_Real_WCty:
+        type: "string"
+        description: "Real-world consumption in warm city conditions"
+        business_meaning: "Energy consumption when driving in city with warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["consumption", "real world", "city", "warm", "energy use", "urban driving"]
+        
+      Efficiency_Consumption_Real_BHwy:
+        type: "string"
+        description: "Real-world consumption in cold highway conditions"
+        business_meaning: "Energy consumption when driving on highway in cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["consumption", "real world", "highway", "cold", "energy use"]
+        
+      Efficiency_Consumption_Real_BCmb:
+        type: "string"
+        description: "Real-world consumption in cold combined conditions"
+        business_meaning: "Energy consumption in mixed driving conditions with cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["consumption", "real world", "combined", "cold", "energy use", "mixed driving"]
+        
+      Efficiency_Consumption_Real_BCty:
+        type: "string"
+        description: "Real-world consumption in cold city conditions"
+        business_meaning: "Energy consumption when driving in city with cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["consumption", "real world", "city", "cold", "energy use", "urban driving"]
+        
+      # Additional missing efficiency fields from actual schema
+      Efficiency_WLTP_TEH_FuelEq_V:
+        type: "string"
+        description: "WLTP fuel equivalent with trailer/extra high load and variable conditions"
+        business_meaning: "WLTP fuel equivalent when towing with variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "fuel equivalent", "trailer", "towing", "variable", "conditions"]
+        
+      Efficiency_WLTP_TEH_V:
+        type: "string"
+        description: "WLTP efficiency with trailer/extra high load and variable conditions"
+        business_meaning: "WLTP efficiency when towing with variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "efficiency", "trailer", "towing", "variable", "conditions"]
+        
+      Efficiency_Economy_WLTP_TEH_V:
+        type: "string"
+        description: "WLTP economy with trailer/extra high load and variable conditions"
+        business_meaning: "WLTP economy when towing with variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "economy", "trailer", "towing", "variable", "conditions"]
+        
+      Efficiency_Consumption_WLTP_TEH_V:
+        type: "string"
+        description: "WLTP consumption with trailer/extra high load and variable conditions"
+        business_meaning: "WLTP consumption when towing with variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "consumption", "trailer", "towing", "variable", "conditions"]
+        
+      Battery_Capacity_Useable:
+        type: "string"
+        description: "Usable battery capacity"
+        business_meaning: "Actual usable battery capacity in kilowatt-hours"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "high"
+        semantic_keywords: ["battery", "capacity", "usable", "kWh", "energy storage"]
+        
+      Battery_Capacity_Full:
+        type: "string"
+        description: "Full battery capacity"
+        business_meaning: "Total battery capacity including unusable portion in kilowatt-hours"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["battery", "capacity", "full", "total", "kWh", "energy storage"]
+        
+      Battery_Capacity_Estimate:
+        type: "string"
+        description: "Estimated battery capacity"
+        business_meaning: "Estimated battery capacity when exact value is not available"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["battery", "capacity", "estimate", "approximate", "kWh"]
+        
+      Related_Vehicle_ID_Succesor:
+        type: "integer"
+        description: "Related successor vehicle ID"
+        business_meaning: "ID of the vehicle that succeeds this model in the lineup"
+        include_in_context: false
+        max_length: 10
+        search_relevance: "low"
+        semantic_keywords: ["successor", "replacement", "next model", "related vehicle"]
+        
+      Images:
+        type: "array"
+        description: "Vehicle image URLs"
+        business_meaning: "Array of URLs to vehicle images and photos"
+        include_in_context: false
+        max_length: 50
+        search_relevance: "low"
+        semantic_keywords: ["images", "photos", "pictures", "visual", "gallery"]
+        
+      Videos:
+        type: "array"
+        description: "Vehicle video URLs"
+        business_meaning: "Array of URLs to vehicle video content"
+        include_in_context: false
+        max_length: 50
+        search_relevance: "low"
+        semantic_keywords: ["videos", "footage", "content", "media", "array"]
+        
+      embedding:
+        type: "vector"
+        description: "Vector embedding for similarity search"
+        business_meaning: "Mathematical representation for semantic search"
+        include_in_context: false
+        search_relevance: "high"
+    
+    # Context optimization settings
+    context_optimization:
+      max_rows: 15
+      essential_columns: ["Vehicle_ID", "Vehicle_Make", "Vehicle_Model", "Vehicle_Model_Version", "Range_WLTP", "Range_Real", "Battery_Capacity_Useable", "Efficiency_WLTP", "Availability_Status", "Availability_Date_From"]
+      exclude_columns: ["embedding", "Images", "Videos", "Related_Vehicle_ID_Succesor"]
+      sample_strategy: "representative"
+      
+    # Search optimization with semantic awareness
+    search_optimization:
+      vector_search_enabled: true
+      text_search_enabled: true
+      fallback_strategy: "sample_documents"
+      semantic_boost_fields: ["Vehicle_Make", "Vehicle_Model", "Vehicle_Model_Version", "Range_WLTP", "Range_Real", "Battery_Capacity_Useable", "Efficiency_WLTP", "Images", "Videos"]
+      business_keywords: ["BEV", "electric", "battery", "range", "efficiency", "vehicle", "WLTP", "NEDC", "real-world", "performance"]
+      
+    # Data processing
+    data_processing:
+      truncate_long_fields: true
+      max_field_length: 100
+      handle_complex_fields: true
+      
+    # Query understanding and enhancement
+    query_enhancement:
+      enable_semantic_expansion: true
+      enable_intent_detection: true
+      enable_qa_pattern_matching: true
+      business_aliases: {
+        "BEV": ["battery electric vehicle", "electric car", "EV", "electric vehicle"],
+        "range": ["distance", "endurance", "travel distance", "miles", "kilometers"],
+        "battery": ["energy storage", "capacity", "kWh", "power pack"],
+        "efficiency": ["energy efficiency", "consumption", "miles per kWh", "economy"]
+      }
+      common_question_patterns: {
+        "range_analysis": ["range", "distance", "miles", "kilometers", "endurance"],
+        "battery_analysis": ["battery", "capacity", "kWh", "energy", "storage"],
+        "efficiency_analysis": ["efficiency", "consumption", "economy", "miles/kWh"],
+        "availability_analysis": ["available", "launch", "release", "when", "timeline"],
+        "performance_analysis": ["performance", "metrics", "benchmark", "comparison"]
+      }
+
+  phevVE:
+    display_name: "Plug-in Hybrid Electric Vehicle with Embedding"
+    description: "Plug-in Hybrid Electric Vehicle data with vector embeddings for analysis"
+    
+    # Collection name mapping to handle system expectations
+    collection_mapping:
+      system_name: "phev"
+      actual_name: "phevVE"
+    
+    # Column name mapping to handle PySpark schema typos
+    column_aliases:
+      "Vehicle_model_Version": "Vehicle_Model_Version"
+      "Rage_Real_WCmb": "Range_Real_WCmb"
+      "Efficiency_RealBCty": "Efficiency_Real_BCty"
+    
+    # Business context and use cases
+    business_context:
+      domain: "Automotive and Hybrid Vehicles"
+      purpose: "PHEV efficiency analysis, mode comparison, and fuel economy insights"
+      common_queries: [
+        "Compare electric vs gasoline mode efficiency",
+        "Analyze hybrid fuel economy",
+        "Find PHEVs by make and model",
+        "Compare battery range vs ICE efficiency",
+        "Analyze hybrid system performance"
+      ]
+      key_entities: ["PHEV", "hybrid", "efficiency", "range", "battery", "ICE", "fuel", "vehicle"]
+    
+    # Enhanced Question/Answer Patterns for Intent Understanding
+    question_answer_patterns:
+      # Core patterns (always available, fast access)
+      core_patterns:
+        - question_pattern: "Compare electric mode vs gasoline mode efficiency"
+          answer_intent: "mode_comparison_analysis"
+          business_entities: ["PHEV", "electric", "gasoline", "efficiency", "comparison"]
+          expected_columns: ["Vehicle_Make", "Vehicle_Model", "Range_WLTP", "ICE_Efficiency_WLTP", "Efficiency_WLTP"]
+          search_strategy: "mode_efficiency_comparison"
+          sample_queries: [
+            "electric vs gas mode efficiency",
+            "compare hybrid electric and ICE performance",
+            "PHEV mode efficiency analysis"
+          ]
+          
+        - question_pattern: "Analyze hybrid fuel economy and consumption"
+          answer_intent: "fuel_economy_analysis"
+          business_entities: ["PHEV", "fuel", "economy", "consumption", "efficiency"]
+          expected_columns: ["Vehicle_Make", "Vehicle_Model", "ICE_Efficiency_NEDC", "ICE_Efficiency_WLTP", "Efficiency_Consumption_WLTP"]
+          search_strategy: "fuel_economy_analysis"
+          sample_queries: [
+            "hybrid fuel economy analysis",
+            "PHEV fuel consumption comparison",
+            "gasoline efficiency in hybrid mode"
+          ]
+          
+        - question_pattern: "Compare battery capacity across PHEV models"
+          answer_intent: "hybrid_battery_analysis"
+          business_entities: ["PHEV", "battery", "capacity", "model", "comparison"]
+          expected_columns: ["Vehicle_Make", "Vehicle_Model", "Battery_Capacity_Useable", "Battery_Capacity_Full", "Range_WLTP"]
+          search_strategy: "battery_capacity_comparison"
+          sample_queries: [
+            "PHEV battery capacity comparison",
+            "hybrid battery sizes by model",
+            "electric range vs battery capacity"
+          ]
+          
+        - question_pattern: "Find PHEVs available in specific timeframe"
+          answer_intent: "hybrid_availability_analysis"
+          business_entities: ["PHEV", "availability", "timeline", "launch", "date"]
+          expected_columns: ["Vehicle_Make", "Vehicle_Model", "Availability_Status", "Availability_Date_From", "Availability_Date_To"]
+          search_strategy: "availability_search"
+          sample_queries: [
+            "PHEVs launching soon",
+            "hybrid availability timeline",
+            "when are new PHEVs available"
+          ]
+          
+        - question_pattern: "Analyze hybrid system performance metrics"
+          answer_intent: "hybrid_system_analysis"
+          business_entities: ["PHEV", "hybrid", "system", "performance", "metrics"]
+          expected_columns: ["Vehicle_Make", "Vehicle_Model", "Efficiency_Real", "ICE_Efficiency_Real", "Range_Real"]
+          search_strategy: "system_performance_analysis"
+          sample_queries: [
+            "hybrid system performance analysis",
+            "PHEV real-world performance",
+            "hybrid efficiency in practice"
+          ]
+      
+      # Intent categories for better understanding
+      intent_categories:
+        mode_comparison_analysis:
+          description: "Questions about electric vs gasoline mode performance"
+          keywords: ["electric", "gasoline", "mode", "comparison", "vs", "versus"]
+          business_context: "Mode performance comparison for PHEV analysis"
+          expected_output: "Mode comparison with performance metrics"
+          
+        fuel_economy_analysis:
+          description: "Questions about fuel efficiency and consumption"
+          keywords: ["fuel", "economy", "consumption", "efficiency", "gasoline", "mpg"]
+          business_context: "Fuel economy analysis and comparison"
+          expected_output: "Fuel economy metrics and comparisons"
+          
+        hybrid_battery_analysis:
+          description: "Questions about battery capacity and electric range"
+          keywords: ["battery", "capacity", "electric", "range", "kWh", "energy"]
+          business_context: "Battery performance in hybrid context"
+          expected_output: "Battery capacity and range analysis"
+          
+        hybrid_availability_analysis:
+          description: "Questions about PHEV availability and timelines"
+          keywords: ["available", "launch", "release", "timeline", "when", "date"]
+          business_context: "Market availability for hybrid vehicles"
+          expected_output: "Availability information and timelines"
+          
+        hybrid_system_analysis:
+          description: "Questions about overall hybrid system performance"
+          keywords: ["hybrid", "system", "performance", "metrics", "analysis", "efficiency"]
+          business_context: "Hybrid system performance analysis"
+          expected_output: "System performance metrics and analysis"
+    
+    # Data dictionary with semantic descriptions
+    data_dictionary:
+      Vehicle_ID:
+        type: "integer"
+        description: "Unique identifier for each vehicle"
+        business_meaning: "Primary key for vehicle identification"
+        include_in_context: false
+        max_length: 10
+        search_relevance: "low"
+        
+      Vehicle_Make:
+        type: "string"
+        description: "Manufacturer brand name"
+        business_meaning: "Car manufacturer (e.g., Toyota, Ford, BMW)"
+        include_in_context: true
+        max_length: 50
+        search_relevance: "high"
+        semantic_keywords: ["brand", "manufacturer", "make", "company"]
+        
+      Vehicle_Model:
+        type: "string"
+        description: "Specific model name"
+        business_meaning: "Vehicle model designation (e.g., Prius Prime, Escape PHEV, X5 xDrive45e)"
+        include_in_context: true
+        max_length: 100
+        search_relevance: "high"
+        semantic_keywords: ["model", "name", "designation", "variant"]
+        
+      Vehicle_Model_Version:
+        type: "string"
+        description: "Specific model version or trim level"
+        business_meaning: "Model variant or trim specification (e.g., Prime, PHEV, xDrive45e)"
+        include_in_context: true
+        max_length: 100
+        search_relevance: "medium"
+        semantic_keywords: ["version", "trim", "variant", "specification", "level"]
+        
+      Availability_Status:
+        type: "integer"
+        description: "Vehicle availability status code"
+        business_meaning: "Current availability status (e.g., 1=Available, 2=Coming Soon, 3=Discontinued)"
+        include_in_context: true
+        max_length: 5
+        search_relevance: "medium"
+        semantic_keywords: ["status", "availability", "available", "coming soon", "discontinued"]
+        
+      Availability_Date_From:
+        type: "string"
+        description: "Vehicle availability start date"
+        business_meaning: "When the vehicle becomes available for purchase"
+        include_in_context: true
+        max_length: 20
+        search_relevance: "medium"
+        semantic_keywords: ["available", "launch", "release", "start date", "timeline"]
+        
+      Availability_Date_From_Estimate:
+        type: "boolean"
+        description: "Whether availability date is estimated"
+        business_meaning: "Indicates if the availability date is confirmed or estimated"
+        include_in_context: false
+        max_length: 5
+        search_relevance: "low"
+        semantic_keywords: ["estimate", "confirmed", "tentative", "approximate"]
+        
+      Availability_Date_To:
+        type: "string"
+        description: "Vehicle availability end date"
+        business_meaning: "When the vehicle stops being available for purchase"
+        include_in_context: true
+        max_length: 20
+        search_relevance: "medium"
+        semantic_keywords: ["end date", "discontinued", "last available", "final date"]
+        
+      Range_WLTP:
+        type: "string"
+        description: "WLTP certified electric range"
+        business_meaning: "Official WLTP test cycle electric range in kilometers"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "high"
+        semantic_keywords: ["WLTP", "electric range", "certified", "official", "test cycle"]
+        
+      Range_WLTP_Estimate:
+        type: "boolean"
+        description: "Whether WLTP range is estimated"
+        business_meaning: "Indicates if the WLTP range is confirmed or estimated"
+        include_in_context: false
+        max_length: 5
+        search_relevance: "low"
+        semantic_keywords: ["estimate", "confirmed", "tentative", "approximate"]
+        
+      Range_WLTP_TEH:
+        type: "string"
+        description: "WLTP range with trailer/extra high load"
+        business_meaning: "WLTP range when towing or carrying extra high load"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "range", "trailer", "towing", "extra load", "high load"]
+        
+      Range_NEDC:
+        type: "integer"
+        description: "NEDC certified electric range"
+        business_meaning: "Official NEDC test cycle electric range in kilometers"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["NEDC", "electric range", "certified", "official", "test cycle", "old standard"]
+        
+      Range_NEDC_Estimate:
+        type: "boolean"
+        description: "Whether NEDC range is estimated"
+        business_meaning: "Indicates if the NEDC range is confirmed or estimated"
+        include_in_context: false
+        max_length: 5
+        search_relevance: "low"
+        semantic_keywords: ["estimate", "confirmed", "tentative", "approximate"]
+        
+      Range_Real:
+        type: "integer"
+        description: "Real-world electric range estimate"
+        business_meaning: "Estimated real-world electric driving range in kilometers"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "high"
+        semantic_keywords: ["real", "actual", "practical", "real-world", "estimate", "electric range"]
+        
+      Range_Real_Mode:
+        type: "string"
+        description: "Real-world range driving mode"
+        business_meaning: "Driving mode used for real-world range testing"
+        include_in_context: true
+        max_length: 20
+        search_relevance: "medium"
+        semantic_keywords: ["driving mode", "real world", "test mode", "conditions"]
+        
+      Range_Real_WHwy:
+        type: "string"
+        description: "Real-world range in warm highway conditions"
+        business_meaning: "Real-world electric range when driving on highway in warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["real world", "highway", "warm", "range", "conditions", "electric"]
+        
+      Range_Real_WCmb:
+        type: "string"
+        description: "Real-world range in warm combined conditions"
+        business_meaning: "Real-world electric range in mixed driving conditions with warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["real world", "combined", "warm", "range", "mixed driving", "electric"]
+        
+      Range_Real_WCty:
+        type: "string"
+        description: "Real-world range in warm city conditions"
+        business_meaning: "Real-world electric range when driving in city with warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["real world", "city", "warm", "range", "urban driving", "electric"]
+        
+      Range_Real_BHwy:
+        type: "string"
+        description: "Real-world range in cold highway conditions"
+        business_meaning: "Real-world electric range when driving on highway in cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["real world", "highway", "cold", "range", "conditions", "electric"]
+        
+      Range_Real_BCmb:
+        type: "string"
+        description: "Real-world range in cold combined conditions"
+        business_meaning: "Real-world electric range in mixed driving conditions with cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["real world", "combined", "cold", "range", "mixed driving", "electric"]
+        
+      Range_Real_BCty:
+        type: "string"
+        description: "Real-world range in cold city conditions"
+        business_meaning: "Real-world electric range when driving in city with cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["real world", "city", "cold", "range", "urban driving", "electric"]
+        
+      Efficiency_WLTP:
+        type: "string"
+        description: "WLTP combined efficiency rating"
+        business_meaning: "Combined electric and ICE efficiency in WLTP cycle"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "high"
+        semantic_keywords: ["efficiency", "WLTP", "combined", "hybrid efficiency"]
+        
+      Efficiency_Economy_WLTP:
+        type: "string"
+        description: "WLTP economy rating"
+        business_meaning: "Fuel economy equivalent in WLTP test cycle"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["economy", "WLTP", "fuel economy", "equivalent", "mpg"]
+        
+      Efficiency_Consumption_WLTP:
+        type: "string"
+        description: "WLTP energy consumption rating"
+        business_meaning: "Energy consumption in kilowatt-hours per 100km (WLTP)"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["consumption", "WLTP", "energy use", "kWh/100km", "efficiency"]
+        
+      Efficiency_WLTP_FuelEq:
+        type: "string"
+        description: "WLTP fuel equivalent efficiency"
+        business_meaning: "Fuel equivalent efficiency in WLTP test cycle"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["fuel equivalent", "WLTP", "gasoline equivalent", "mpg equivalent"]
+        
+      Efficiency_WLTP_V:
+        type: "string"
+        description: "WLTP efficiency with variable conditions"
+        business_meaning: "WLTP efficiency considering variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "efficiency", "variable", "conditions", "dynamic"]
+        
+      Efficiency_Economy_WLTP_V:
+        type: "string"
+        description: "WLTP economy with variable conditions"
+        business_meaning: "WLTP economy considering variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "economy", "variable", "conditions", "dynamic"]
+        
+      Efficiency_Consumption_WLTP_V:
+        type: "string"
+        description: "WLTP consumption with variable conditions"
+        business_meaning: "WLTP consumption considering variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "consumption", "variable", "conditions", "dynamic"]
+        
+      Efficiency_WLTP_FuelEq_V:
+        type: "string"
+        description: "WLTP fuel equivalent with variable conditions"
+        business_meaning: "WLTP fuel equivalent considering variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "fuel equivalent", "variable", "conditions", "dynamic"]
+        
+      Efficiency_WLTP_CO2:
+        type: "string"
+        description: "WLTP CO2 emissions rating"
+        business_meaning: "Carbon dioxide emissions in grams per kilometer (WLTP)"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["CO2", "emissions", "WLTP", "carbon dioxide", "g/km"]
+        
+      Efficiency_WLTP_TEH:
+        type: "string"
+        description: "WLTP efficiency with trailer/extra high load"
+        business_meaning: "WLTP efficiency when towing or carrying extra high load"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "efficiency", "trailer", "towing", "extra load", "high load"]
+        
+      Efficiency_Economy_WLTP_TEH:
+        type: "string"
+        description: "WLTP economy with trailer/extra high load"
+        business_meaning: "WLTP economy when towing or carrying extra high load"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "economy", "trailer", "towing", "extra load", "high load"]
+        
+      Efficiency_Consumption_WLTP_TEH:
+        type: "string"
+        description: "WLTP consumption with trailer/extra high load"
+        business_meaning: "WLTP consumption when towing or carrying extra high load"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "consumption", "trailer", "towing", "extra load", "high load"]
+        
+      Efficiency_WLTP_TEH_FuelEq:
+        type: "string"
+        description: "WLTP fuel equivalent with trailer/extra high load"
+        business_meaning: "WLTP fuel equivalent when towing or carrying extra high load"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "fuel equivalent", "trailer", "towing", "extra load", "high load"]
+        
+      Efficiency_WLTP_TEH_V:
+        type: "string"
+        description: "WLTP efficiency with trailer/extra high load and variable conditions"
+        business_meaning: "WLTP efficiency when towing with variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "efficiency", "trailer", "towing", "variable", "conditions"]
+        
+      Efficiency_Economy_WLTP_TEH_V:
+        type: "string"
+        description: "WLTP economy with trailer/extra high load and variable conditions"
+        business_meaning: "WLTP economy when towing with variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "economy", "trailer", "towing", "variable", "conditions"]
+        
+      Efficiency_Consumption_WLTP_TEH_V:
+        type: "string"
+        description: "WLTP consumption with trailer/extra high load and variable conditions"
+        business_meaning: "WLTP consumption when towing with variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "consumption", "trailer", "towing", "variable", "conditions"]
+        
+      Efficiency_WLTP_TEH_FuelEq_V:
+        type: "string"
+        description: "WLTP fuel equivalent with trailer/extra high load and variable conditions"
+        business_meaning: "WLTP fuel equivalent when towing with variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "fuel equivalent", "trailer", "towing", "variable", "conditions"]
+        
+      Efficiency_WLTP_TEH_CO2:
+        type: "string"
+        description: "WLTP CO2 emissions with trailer/extra high load"
+        business_meaning: "WLTP CO2 emissions when towing or carrying extra high load"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["WLTP", "CO2", "emissions", "trailer", "towing", "extra load"]
+        
+      Efficiency_NEDC:
+        type: "string"
+        description: "NEDC efficiency rating"
+        business_meaning: "Energy efficiency in miles per kilowatt-hour (NEDC)"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["efficiency", "NEDC", "miles/kWh", "energy efficiency", "old standard"]
+        
+      Efficiency_Economy_NEDC:
+        type: "string"
+        description: "NEDC economy rating"
+        business_meaning: "Fuel economy equivalent in NEDC test cycle"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["economy", "NEDC", "fuel economy", "equivalent", "mpg", "old standard"]
+        
+      Efficiency_Consumption_NEDC:
+        type: "string"
+        description: "NEDC energy consumption rating"
+        business_meaning: "Energy consumption in kilowatt-hours per 100km (NEDC)"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["consumption", "NEDC", "energy use", "kWh/100km", "efficiency", "old standard"]
+        
+      Efficiency_NEDC_FuelEq:
+        type: "string"
+        description: "NEDC fuel equivalent efficiency"
+        business_meaning: "Fuel equivalent efficiency in NEDC test cycle"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["fuel equivalent", "NEDC", "gasoline equivalent", "mpg equivalent", "old standard"]
+        
+      Efficiency_NEDC_V:
+        type: "string"
+        description: "NEDC efficiency with variable conditions"
+        business_meaning: "NEDC efficiency considering variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["NEDC", "efficiency", "variable", "conditions", "dynamic", "old standard"]
+        
+      Efficiency_Economy_NEDC_V:
+        type: "string"
+        description: "NEDC economy with variable conditions"
+        business_meaning: "NEDC economy considering variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["NEDC", "economy", "variable", "conditions", "dynamic", "old standard"]
+        
+      Efficiency_Consumption_NEDC_V:
+        type: "string"
+        description: "NEDC consumption with variable conditions"
+        business_meaning: "NEDC consumption considering variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["NEDC", "consumption", "variable", "conditions", "dynamic", "old standard"]
+        
+      Efficiency_NEDC_FuelEq_V:
+        type: "string"
+        description: "NEDC fuel equivalent with variable conditions"
+        business_meaning: "NEDC fuel equivalent considering variable driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["NEDC", "fuel equivalent", "variable", "conditions", "dynamic", "old standard"]
+        
+      Efficiency_NEDC_CO2:
+        type: "string"
+        description: "NEDC CO2 emissions rating"
+        business_meaning: "Carbon dioxide emissions in grams per kilometer (NEDC)"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["CO2", "emissions", "NEDC", "carbon dioxide", "g/km", "old standard"]
+        
+      Efficiency_Real:
+        type: "string"
+        description: "Real-world efficiency rating"
+        business_meaning: "Energy efficiency in real-world driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "high"
+        semantic_keywords: ["efficiency", "real world", "actual", "practical", "real conditions"]
+        
+      Efficiency_Economy_Real:
+        type: "string"
+        description: "Real-world economy rating"
+        business_meaning: "Fuel economy equivalent in real-world driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["economy", "real world", "actual", "practical", "fuel economy"]
+        
+      Efficiency_Consumption_Real:
+        type: "string"
+        description: "Real-world energy consumption rating"
+        business_meaning: "Energy consumption in real-world driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["consumption", "real world", "actual", "practical", "energy use"]
+        
+      Efficiency_Real_FuelEq_V:
+        type: "string"
+        description: "Real-world fuel equivalent efficiency"
+        business_meaning: "Fuel equivalent efficiency in real-world driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["fuel equivalent", "real world", "actual", "practical", "gasoline equivalent"]
+        
+      Efficiency_Real_CO2:
+        type: "string"
+        description: "Real-world CO2 emissions rating"
+        business_meaning: "Carbon dioxide emissions in real-world driving conditions"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["CO2", "emissions", "real world", "actual", "practical", "carbon dioxide"]
+        
+      Efficiency_Real_WHwy:
+        type: "string"
+        description: "Real-world efficiency in warm highway conditions"
+        business_meaning: "Energy efficiency when driving on highway in warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["efficiency", "real world", "highway", "warm", "conditions"]
+        
+      Efficiency_Real_WCmb:
+        type: "string"
+        description: "Real-world efficiency in warm combined conditions"
+        business_meaning: "Energy efficiency in mixed driving conditions with warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["efficiency", "real world", "combined", "warm", "mixed driving"]
+        
+      Efficiency_Real_WCty:
+        type: "string"
+        description: "Real-world efficiency in warm city conditions"
+        business_meaning: "Energy efficiency when driving in city with warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["efficiency", "real world", "city", "warm", "urban driving"]
+        
+      Efficiency_Real_BHwy:
+        type: "string"
+        description: "Real-world efficiency in cold highway conditions"
+        business_meaning: "Energy efficiency when driving on highway in cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["efficiency", "real world", "highway", "cold", "conditions"]
+        
+      Efficiency_Real_BCmb:
+        type: "string"
+        description: "Real-world efficiency in cold combined conditions"
+        business_meaning: "Energy efficiency in mixed driving conditions with cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["efficiency", "real world", "combined", "cold", "mixed driving"]
+        
+      Efficiency_Real_BCty:
+        type: "string"
+        description: "Real-world efficiency in cold city conditions"
+        business_meaning: "Energy efficiency when driving in city with cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["efficiency", "real world", "city", "cold", "urban driving"]
+        
+      Efficiency_Economy_Real_WHwy:
+        type: "string"
+        description: "Real-world economy in warm highway conditions"
+        business_meaning: "Fuel economy when driving on highway in warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["economy", "real world", "highway", "warm", "fuel economy"]
+        
+      Efficiency_Economy_Real_WCmb:
+        type: "string"
+        description: "Real-world economy in warm combined conditions"
+        business_meaning: "Fuel economy in mixed driving conditions with warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["economy", "real world", "combined", "warm", "fuel economy", "mixed driving"]
+        
+      Efficiency_Economy_Real_WCty:
+        type: "string"
+        description: "Real-world economy in warm city conditions"
+        business_meaning: "Fuel economy when driving in city with warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["economy", "real world", "city", "warm", "fuel economy", "urban driving"]
+        
+      Efficiency_Economy_Real_BHwy:
+        type: "string"
+        description: "Real-world economy in cold highway conditions"
+        business_meaning: "Fuel economy when driving on highway in cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["economy", "real world", "highway", "cold", "fuel economy"]
+        
+      Efficiency_Economy_Real_BCmb:
+        type: "string"
+        description: "Real-world economy in cold combined conditions"
+        business_meaning: "Fuel economy in mixed driving conditions with cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["economy", "real world", "combined", "cold", "fuel economy", "mixed driving"]
+        
+      Efficiency_Economy_Real_BCty:
+        type: "string"
+        description: "Real-world economy in cold city conditions"
+        business_meaning: "Fuel economy when driving in city with cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["economy", "real world", "city", "cold", "fuel economy", "urban driving"]
+        
+      Efficiency_Consumption_Real_WHwy:
+        type: "string"
+        description: "Real-world consumption in warm highway conditions"
+        business_meaning: "Energy consumption when driving on highway in warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["consumption", "real world", "highway", "warm", "energy use"]
+        
+      Efficiency_Consumption_Real_WCmb:
+        type: "string"
+        description: "Real-world consumption in warm combined conditions"
+        business_meaning: "Energy consumption in mixed driving conditions with warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["consumption", "real world", "combined", "warm", "energy use", "mixed driving"]
+        
+      Efficiency_Consumption_Real_WCty:
+        type: "string"
+        description: "Real-world consumption in warm city conditions"
+        business_meaning: "Energy consumption when driving in city with warm weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["consumption", "real world", "city", "warm", "energy use", "urban driving"]
+        
+      Efficiency_Consumption_Real_BHwy:
+        type: "string"
+        description: "Real-world consumption in cold highway conditions"
+        business_meaning: "Energy consumption when driving on highway in cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["consumption", "real world", "highway", "cold", "energy use"]
+        
+      Efficiency_Consumption_Real_BCmb:
+        type: "string"
+        description: "Real-world consumption in cold combined conditions"
+        business_meaning: "Energy consumption in mixed driving conditions with cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["consumption", "real world", "combined", "cold", "energy use", "mixed driving"]
+        
+      Efficiency_Consumption_Real_BCty:
+        type: "string"
+        description: "Real-world consumption in cold city conditions"
+        business_meaning: "Energy consumption when driving in city with cold weather"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["consumption", "real world", "city", "cold", "energy use", "urban driving"]
+        
+      # PHEV-Specific ICE Efficiency Fields
+      ICE_Efficiency_NEDC:
+        type: "string"
+        description: "NEDC ICE mode efficiency"
+        business_meaning: "Internal combustion engine efficiency in NEDC test cycle when battery is depleted"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "high"
+        semantic_keywords: ["ICE", "gasoline", "efficiency", "NEDC", "fuel economy", "battery empty", "old standard"]
+        
+      ICE_Efficiency_NEDC_CO2:
+        type: "string"
+        description: "NEDC ICE mode CO2 emissions"
+        business_meaning: "Carbon dioxide emissions in NEDC test cycle when battery is depleted"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["ICE", "CO2", "emissions", "NEDC", "battery empty", "carbon dioxide", "old standard"]
+        
+      ICE_Efficiency_NEDC_BattEmpty:
+        type: "string"
+        description: "NEDC ICE mode efficiency with empty battery"
+        business_meaning: "Internal combustion engine efficiency in NEDC test cycle with depleted battery"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "high"
+        semantic_keywords: ["ICE", "efficiency", "NEDC", "battery empty", "depleted", "old standard"]
+        
+      ICE_Efficiency_NEDC_BattEmpty_CO2:
+        type: "string"
+        description: "NEDC ICE mode CO2 emissions with empty battery"
+        business_meaning: "Carbon dioxide emissions in NEDC test cycle with depleted battery"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["ICE", "CO2", "emissions", "NEDC", "battery empty", "depleted", "carbon dioxide", "old standard"]
+        
+      ICE_Efficiency_WLTP:
+        type: "string"
+        description: "WLTP ICE mode efficiency"
+        business_meaning: "Internal combustion engine efficiency in WLTP test cycle when battery is depleted"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "high"
+        semantic_keywords: ["ICE", "gasoline", "efficiency", "WLTP", "fuel economy", "battery empty"]
+        
+      ICE_Efficiency_WLTP_CO2:
+        type: "string"
+        description: "WLTP ICE mode CO2 emissions"
+        business_meaning: "Carbon dioxide emissions in WLTP test cycle when battery is depleted"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["ICE", "CO2", "emissions", "WLTP", "battery empty", "carbon dioxide"]
+        
+      ICE_Efficiency_WLTP_TEH:
+        type: "string"
+        description: "WLTP ICE mode efficiency with trailer/extra high load"
+        business_meaning: "ICE efficiency in WLTP test cycle when towing or carrying extra high load"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["ICE", "efficiency", "WLTP", "trailer", "towing", "extra load", "high load"]
+        
+      ICE_Efficiency_WLTP_TEH_CO2:
+        type: "string"
+        description: "WLTP ICE mode CO2 emissions with trailer/extra high load"
+        business_meaning: "ICE CO2 emissions in WLTP test cycle when towing or carrying extra high load"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["ICE", "CO2", "emissions", "WLTP", "trailer", "towing", "extra load", "high load"]
+        
+      Battery_Capacity_Useable:
+        type: "string"
+        description: "Usable battery capacity"
+        business_meaning: "Actual usable battery capacity in kilowatt-hours"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "high"
+        semantic_keywords: ["battery", "capacity", "usable", "kWh", "energy storage"]
+        
+      Battery_Capacity_Full:
+        type: "string"
+        description: "Full battery capacity"
+        business_meaning: "Total battery capacity including unusable portion in kilowatt-hours"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["battery", "capacity", "full", "total", "kWh", "energy storage"]
+        
+      Battery_Capacity_Estimate:
+        type: "string"
+        description: "Estimated battery capacity"
+        business_meaning: "Estimated battery capacity when exact value is not available"
+        include_in_context: true
+        max_length: 10
+        search_relevance: "medium"
+        semantic_keywords: ["battery", "capacity", "estimate", "approximate", "kWh"]
+        
+      Related_Vehicle_ID_Succesor:
+        type: "integer"
+        description: "Related successor vehicle ID"
+        business_meaning: "ID of the vehicle that succeeds this model in the lineup"
+        include_in_context: false
+        max_length: 10
+        search_relevance: "low"
+        semantic_keywords: ["successor", "replacement", "next model", "related vehicle"]
+        
+      Images:
+        type: "array"
+        description: "Vehicle image URLs"
+        business_meaning: "Array of URLs to vehicle images and photos"
+        include_in_context: false
+        max_length: 50
+        search_relevance: "low"
+        semantic_keywords: ["images", "photos", "pictures", "visual", "gallery"]
+        
+      Videos:
+        type: "array"
+        description: "Vehicle video URLs"
+        business_meaning: "Array of URLs to vehicle video content"
+        include_in_context: false
+        max_length: 50
+        search_relevance: "low"
+        semantic_keywords: ["videos", "footage", "content", "media", "array"]
+        
+      embedding:
+        type: "vector"
+        description: "Vector embedding for similarity search"
+        business_meaning: "Mathematical representation for semantic search"
+        include_in_context: false
+        search_relevance: "high"
+    
+    # Context optimization settings
+    context_optimization:
+      max_rows: 15
+      essential_columns: ["Vehicle_ID", "Vehicle_Make", "Vehicle_Model", "Vehicle_Model_Version", "Range_WLTP", "Range_Real", "Battery_Capacity_Useable", "ICE_Efficiency_WLTP", "Availability_Status", "Availability_Date_From", "Images", "Videos"]
+      exclude_columns: ["embedding", "Related_Vehicle_ID_Succesor"]
+      sample_strategy: "representative"
+      
+    # Search optimization with semantic awareness
+    search_optimization:
+      vector_search_enabled: true
+      text_search_enabled: true
+      fallback_strategy: "sample_documents"
+      semantic_boost_fields: ["Vehicle_Make", "Vehicle_Model", "Vehicle_Model_Version", "Range_WLTP", "Range_Real", "Battery_Capacity_Useable", "ICE_Efficiency_WLTP", "Images", "Videos"]
+      business_keywords: ["PHEV", "hybrid", "efficiency", "battery", "ICE", "fuel", "vehicle", "WLTP", "NEDC", "real-world", "performance"]
+      
+    # Data processing
+    data_processing:
+      truncate_long_fields: true
+      max_field_length: 100
+      handle_complex_fields: true
+      
+    # Query understanding and enhancement
+    query_enhancement:
+      enable_semantic_expansion: true
+      enable_intent_detection: true
+      enable_qa_pattern_matching: true
+      business_aliases: {
+        "PHEV": ["plug-in hybrid", "hybrid electric", "hybrid vehicle", "plug-in hybrid electric vehicle"],
+        "hybrid": ["hybrid vehicle", "gas-electric", "dual mode", "plug-in hybrid"],
+        "ICE": ["internal combustion engine", "gasoline engine", "gas engine", "petrol engine"],
+        "efficiency": ["fuel economy", "consumption", "mpg", "efficiency rating"]
+      }
+      common_question_patterns: {
+        "mode_comparison_analysis": ["electric", "gasoline", "mode", "comparison", "vs", "versus"],
+        "fuel_economy_analysis": ["fuel", "economy", "consumption", "efficiency", "gasoline", "mpg"],
+        "hybrid_battery_analysis": ["battery", "capacity", "electric", "range", "kWh", "energy"],
+        "hybrid_availability_analysis": ["available", "launch", "release", "timeline", "when", "date"],
+        "hybrid_system_analysis": ["hybrid", "system", "performance", "metrics", "analysis", "efficiency"]
+      }
+
   # Template for future collections
   template_collection:
     display_name: "Template Collection"
@@ -165,6 +2088,26 @@ mongodb_collections:
       purpose: "Template for new collections"
       common_queries: ["Find records", "Analyze data", "Get statistics"]
       key_entities: ["record", "data", "information"]
+    
+    # Enhanced Question/Answer Patterns Template
+    question_answer_patterns:
+      core_patterns:
+        - question_pattern: "Find records with specific criteria"
+          answer_intent: "find_records"
+          business_entities: ["record", "criteria", "filter"]
+          expected_columns: ["id", "main_field"]
+          search_strategy: "filtered_search"
+          sample_queries: [
+            "show me records with specific values",
+            "find records matching criteria"
+          ]
+      
+      intent_categories:
+        find_records:
+          description: "Questions about finding specific records"
+          keywords: ["find", "show", "get", "retrieve", "search"]
+          business_context: "Record retrieval and filtering"
+          expected_output: "Filtered list of records"
     
     data_dictionary:
       _id:
@@ -202,6 +2145,8 @@ mongodb_collections:
       
     query_enhancement:
       enable_semantic_expansion: true
+      enable_intent_detection: true
+      enable_qa_pattern_matching: true
       business_aliases: {}
       common_question_patterns: {}
 
@@ -213,4 +2158,11 @@ global_settings:
   enable_field_truncation: true
   enable_complex_field_handling: true
   enable_semantic_search: true
-  enable_query_enhancement: true 
+  enable_query_enhancement: true
+  enable_intent_detection: true  # New: Global intent detection setting
+  enable_qa_pattern_matching: true  # New: Global Q&A pattern matching setting
+  
+  # Collection name mapping to handle system expectations
+  collection_mappings:
+    "bev": "bevVE"
+    "phev": "phevVE"
