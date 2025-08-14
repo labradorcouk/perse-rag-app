@@ -3,6 +3,197 @@
 # to prevent parsing issues and optimize token usage in RAG applications
 
 mongodb_collections:
+  connections:
+    display_name: "Connections"
+    description: "Energy connection records with address, meter, and API status information"
+    
+    # Business context and use cases
+    business_context:
+      domain: "Energy and Utilities"
+      purpose: "Energy connection management and API status tracking"
+      common_queries: [
+        "Find connections by EMSN, MPAN, MPRN, or UPRN",
+        "Search connections by postcode or address",
+        "Check API status for specific services",
+        "Analyze connection data by location",
+        "Find connections with specific meter numbers"
+      ]
+      key_entities: ["UPRN", "EMSN", "MPAN", "MPRN", "POSTCODE", "ADDRESS", "apiStatus"]
+    
+    # Enhanced Question/Answer Patterns for Intent Understanding
+    question_answer_patterns:
+      # Core patterns (always available, fast access)
+      core_patterns:
+        - question_pattern: "Find connection by EMSN number"
+          answer_intent: "find_by_emsn"
+          business_entities: ["EMSN", "connection", "meter"]
+          expected_columns: ["EMSN", "ADDRESS", "POSTCODE", "UPRN", "apiStatus"]
+          search_strategy: "emsn_search"
+          sample_queries: [
+            "show me connection for EMSN 24E8049370",
+            "find connection by EMSN",
+            "EMSN connection details"
+          ]
+          
+        - question_pattern: "Search connections by postcode"
+          answer_intent: "location_search"
+          business_entities: ["POSTCODE", "ADDRESS", "location"]
+          expected_columns: ["POSTCODE", "ADDRESS", "UPRN", "EMSN", "MPAN"]
+          search_strategy: "postcode_search"
+          sample_queries: [
+            "find connections in SE23 area",
+            "show me connections by postcode",
+            "connections in specific area"
+          ]
+          
+        - question_pattern: "Check API status for connections"
+          answer_intent: "api_status_check"
+          business_entities: ["apiStatus", "service", "status"]
+          expected_columns: ["UPRN", "apiStatus", "ADDRESS"]
+          search_strategy: "api_status_search"
+          sample_queries: [
+            "show xoserveMeters API status",
+            "check buildingData API status",
+            "API status for connections"
+          ]
+          
+        - question_pattern: "Find connections by address"
+          answer_intent: "address_search"
+          business_entities: ["ADDRESS", "location", "street"]
+          expected_columns: ["ADDRESS", "POSTCODE", "UPRN", "EMSN", "MPAN"]
+          search_strategy: "address_search"
+          sample_queries: [
+            "find connections on WESTBOURNE DRIVE",
+            "connections at specific address",
+            "search by street name"
+          ]
+          
+        - question_pattern: "Get connection details by UPRN"
+          answer_intent: "find_by_uprn"
+          business_entities: ["UPRN", "connection", "identifier"]
+          expected_columns: ["UPRN", "ADDRESS", "EMSN", "MPAN", "MPRN", "apiStatus"]
+          search_strategy: "uprn_search"
+          sample_queries: [
+            "show connection details for UPRN 10023229787",
+            "find connection by UPRN",
+            "UPRN connection information"
+          ]
+      
+      # Intent categories for better understanding
+      intent_categories:
+        find_by_emsn:
+          description: "Questions about finding connections by EMSN number"
+          keywords: ["EMSN", "meter", "number", "find", "search"]
+          business_context: "Meter identification and connection lookup"
+          expected_output: "Connection details for specific EMSN"
+          
+        location_search:
+          description: "Questions about geographic or location-based queries"
+          keywords: ["postcode", "area", "region", "location", "address", "geographic"]
+          business_context: "Geographic data analysis and location-based insights"
+          expected_output: "Location-filtered connection results"
+          
+        api_status_check:
+          description: "Questions about checking API service status"
+          keywords: ["API", "status", "service", "check", "xoserve", "building", "elink"]
+          business_context: "Service monitoring and API health checks"
+          expected_output: "API status information for connections"
+          
+        address_search:
+          description: "Questions about searching by address or street"
+          keywords: ["address", "street", "road", "drive", "location", "search"]
+          business_context: "Address-based connection lookup"
+          expected_output: "Connections matching address criteria"
+          
+        find_by_uprn:
+          description: "Questions about finding connections by UPRN"
+          keywords: ["UPRN", "identifier", "find", "search", "connection"]
+          business_context: "Unique property reference number lookup"
+          expected_output: "Complete connection details by UPRN"
+    
+    # Context optimization for better search results
+    context_optimization:
+      essential_columns: ["UPRN", "EMSN", "MPAN", "MPRN", "POSTCODE", "ADDRESS", "apiStatus"]
+      exclude_columns: ["_id", "GEOM", "LATLON"]
+      max_rows: 20
+      semantic_boost_fields: ["ADDRESS", "POSTCODE", "EMSN", "MPAN", "MPRN"]
+      
+    # Data dictionary for field understanding
+    data_dictionary:
+      UPRN:
+        description: "Unique Property Reference Number - primary identifier for each connection"
+        data_type: "string"
+        business_importance: "high"
+        searchable: true
+        examples: ["10023229787", "100023254350"]
+        
+      EMSN:
+        description: "Electricity Meter Serial Number - unique meter identifier"
+        data_type: "array"
+        business_importance: "high"
+        searchable: true
+        examples: ["24E8049370"]
+        
+      MPAN:
+        description: "Meter Point Administration Number - electricity supply point identifier"
+        data_type: "array"
+        business_importance: "high"
+        searchable: true
+        examples: ["1200052437033"]
+        
+      MPRN:
+        description: "Meter Point Reference Number - gas supply point identifier"
+        data_type: "array"
+        business_importance: "high"
+        searchable: true
+        examples: ["9182297807"]
+        
+      POSTCODE:
+        description: "Postal codes for the connection location"
+        data_type: "array"
+        business_importance: "medium"
+        searchable: true
+        examples: ["SE23 2UN", "SE23 2VV", "SE232UN"]
+        
+      ADDRESS:
+        description: "Full addresses for the connection location"
+        data_type: "array"
+        business_importance: "medium"
+        searchable: true
+        examples: ["FLAT 3, 58, WESTBOURNE DRIVE, LONDON, SE23 2UN"]
+        
+      apiStatus:
+        description: "Status of various API services and data sources"
+        data_type: "object"
+        business_importance: "high"
+        searchable: true
+        sub_fields:
+          xoserveMeters:
+            description: "Xoserve meter data API status"
+            data_type: "object"
+          buildingData:
+            description: "Building data API status"
+            data_type: "object"
+          elinkTechDetails:
+            description: "Elink technical details API status"
+            data_type: "object"
+          gbgV2:
+            description: "GBG address verification API status"
+            data_type: "object"
+    
+    # Collection mapping for system integration
+    collection_mapping:
+      system_name: "connections"
+      mongodb_name: "connections"
+      display_name: "Connections"
+      
+    # Search optimization settings
+    search_optimization:
+      business_keywords: ["connection", "energy", "meter", "address", "postcode", "EMSN", "MPAN", "MPRN", "UPRN", "API", "status"]
+      semantic_boost_fields: ["ADDRESS", "POSTCODE", "EMSN", "MPAN", "MPRN"]
+      partial_search_fields: ["POSTCODE", "ADDRESS"]
+      exact_match_fields: ["EMSN", "MPAN", "MPRN", "UPRN"]
+      
   ecoesTechDetailsWithEmbedding:
     display_name: "ECoes Tech Details with Embedding"
     description: "MPAN and technical details with vector embeddings"
@@ -1231,6 +1422,18 @@ mongodb_collections:
             "PHEV real-world performance",
             "hybrid efficiency in practice"
           ]
+          
+        - question_pattern: "Compare fuel efficiency of vehicles"
+          answer_intent: "fuel_efficiency_comparison"
+          business_entities: ["PHEV", "fuel", "efficiency", "comparison", "vehicles", "mpg"]
+          expected_columns: ["Vehicle_Make", "Vehicle_Model", "Efficiency_WLTP", "Efficiency_Real", "ICE_Efficiency_WLTP", "ICE_Efficiency_Real", "Efficiency_Consumption_WLTP", "Efficiency_Consumption_Real"]
+          search_strategy: "fuel_efficiency_comparison"
+          sample_queries: [
+            "compare fuel efficiency of vehicles",
+            "which vehicles are most fuel efficient",
+            "fuel efficiency comparison across models",
+            "mpg comparison of PHEVs"
+          ]
       
       # Intent categories for better understanding
       intent_categories:
@@ -1245,6 +1448,12 @@ mongodb_collections:
           keywords: ["fuel", "economy", "consumption", "efficiency", "gasoline", "mpg"]
           business_context: "Fuel economy analysis and comparison"
           expected_output: "Fuel economy metrics and comparisons"
+          
+        fuel_efficiency_comparison:
+          description: "Questions about comparing fuel efficiency across vehicles"
+          keywords: ["compare", "fuel", "efficiency", "vehicles", "mpg", "comparison", "most efficient"]
+          business_context: "Fuel efficiency comparison analysis"
+          expected_output: "Fuel efficiency comparison metrics and rankings"
           
         hybrid_battery_analysis:
           description: "Questions about battery capacity and electric range"
@@ -2041,7 +2250,7 @@ mongodb_collections:
     # Context optimization settings
     context_optimization:
       max_rows: 15
-      essential_columns: ["Vehicle_ID", "Vehicle_Make", "Vehicle_Model", "Vehicle_Model_Version", "Range_WLTP", "Range_Real", "Battery_Capacity_Useable", "ICE_Efficiency_WLTP", "Availability_Status", "Availability_Date_From", "Images", "Videos"]
+      essential_columns: ["Vehicle_ID", "Vehicle_Make", "Vehicle_Model", "Vehicle_Model_Version", "Range_WLTP", "Range_Real", "Battery_Capacity_Useable", "Battery_Capacity_Full", "ICE_Efficiency_WLTP", "Efficiency_WLTP", "Efficiency_Real", "Efficiency_Consumption_WLTP", "Efficiency_Consumption_Real", "ICE_Efficiency_Real", "Availability_Status", "Availability_Date_From", "Images", "Videos"]
       exclude_columns: ["embedding", "Related_Vehicle_ID_Succesor"]
       sample_strategy: "representative"
       
@@ -2073,6 +2282,7 @@ mongodb_collections:
       common_question_patterns: {
         "mode_comparison_analysis": ["electric", "gasoline", "mode", "comparison", "vs", "versus"],
         "fuel_economy_analysis": ["fuel", "economy", "consumption", "efficiency", "gasoline", "mpg"],
+        "fuel_efficiency_comparison": ["compare", "fuel", "efficiency", "vehicles", "mpg", "comparison", "most efficient"],
         "hybrid_battery_analysis": ["battery", "capacity", "electric", "range", "kWh", "energy"],
         "hybrid_availability_analysis": ["available", "launch", "release", "timeline", "when", "date"],
         "hybrid_system_analysis": ["hybrid", "system", "performance", "metrics", "analysis", "efficiency"]

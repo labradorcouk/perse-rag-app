@@ -44,6 +44,134 @@ from utils.performance_optimizer import performance_optimizer
 # Start monitoring
 startup_monitor.mark_milestone("Application imports")
 
+# 🚀 NEW: Dynamic Complex Field Unpacking Functions
+def unpack_complex_fields_dynamically(df):
+    """Dynamically unpacks complex nested fields in a DataFrame"""
+    try:
+        if df.empty:
+            return df
+        df_unpacked = df.copy()
+        unpacked_columns = []
+        
+        for col in df.columns:
+            if is_complex_field(df[col]):
+                try:
+                    unpacked_cols = unpack_complex_column(df[col], col)
+                    if unpacked_cols is not None:
+                        for new_col_name, new_col_data in unpacked_cols.items():
+                            df_unpacked[new_col_name] = new_col_data
+                            unpacked_columns.append(new_col_name)
+                except Exception:
+                    continue
+        
+        if unpacked_columns:
+            st.info(f"🔍 Unpacked {len(unpacked_columns)} complex fields: {', '.join(unpacked_columns)}")
+        return df_unpacked
+    except Exception as e:
+        st.warning(f"⚠️ Dynamic unpacking failed: {e}")
+        return df
+
+def unpack_complex_series_dynamically(series):
+    """Dynamically unpacks complex nested fields in a Series"""
+    try:
+        if series.empty:
+            return series
+        if is_complex_field(series):
+            try:
+                unpacked_data = unpack_complex_column(series, "series")
+                if unpacked_data:
+                    return pd.DataFrame(unpacked_data)
+            except Exception as e:
+                st.warning(f"⚠️ Series unpacking failed: {e}")
+        return series
+    except Exception as e:
+        st.warning(f"⚠️ Series unpacking failed: {e}")
+        return series
+
+def unpack_complex_other_dynamically(data):
+    """Dynamically unpacks complex nested fields in other data types"""
+    try:
+        if isinstance(data, (dict, list)):
+            unpacked_data = unpack_complex_data_structure(data)
+            if unpacked_data != data:
+                return unpacked_data
+        return data
+    except Exception as e:
+        st.warning(f"⚠️ Other type unpacking failed: {e}")
+        return data
+
+def is_complex_field(series):
+    """Intelligently detects complex nested data"""
+    try:
+        if series.empty:
+            return False
+        sample_values = series.dropna().head(5)
+        if len(sample_values) == 0:
+            return False
+        
+        for val in sample_values:
+            if isinstance(val, dict) and len(val) > 1:
+                return True
+            elif isinstance(val, list) and len(val) > 0:
+                for item in val[:3]:
+                    if isinstance(item, (dict, list)):
+                        return True
+            elif isinstance(val, str):
+                if (val.startswith('{') and val.endswith('}')) or \
+                   (val.startswith('[') and val.endswith(']')) or \
+                   ('requestedAt' in val or 'success' in val):
+                    return True
+        return False
+    except Exception:
+        return False
+
+def unpack_complex_column(series, column_name):
+    """Unpacks complex columns into simple columns"""
+    try:
+        unpacked_columns = {}
+        
+        for idx, value in series.items():
+            if pd.isna(value):
+                continue
+            
+            if isinstance(value, dict):
+                for key, val in value.items():
+                    new_col_name = f"{column_name}_{key}"
+                    if new_col_name not in unpacked_columns:
+                        unpacked_columns[new_col_name] = pd.Series(index=series.index, dtype='object')
+                    unpacked_columns[new_col_name][idx] = val
+            
+            elif isinstance(value, list):
+                if len(value) > 0:
+                    if all(isinstance(item, (str, int, float)) for item in value):
+                        new_col_name = f"{column_name}_joined"
+                        if new_col_name not in unpacked_columns:
+                            unpacked_columns[new_col_name] = pd.Series(index=series.index, dtype='object')
+                        unpacked_columns[new_col_name][idx] = ' | '.join(map(str, value))
+        
+        return unpacked_columns
+    except Exception as e:
+        st.warning(f"⚠️ Column unpacking failed for {column_name}: {e}")
+        return None
+
+def unpack_complex_data_structure(data):
+    """Recursively unpacks complex data structures"""
+    try:
+        if isinstance(data, dict):
+            unpacked = {}
+            for key, value in data.items():
+                if isinstance(value, (dict, list)):
+                    unpacked[key] = unpack_complex_data_structure(value)
+                else:
+                    unpacked[key] = value
+            return unpacked
+        elif isinstance(data, list):
+            return [unpack_complex_data_structure(item) for item in data]
+        else:
+            return data
+    except Exception:
+        return data
+
 # Conditional imports for ODBC support
 try:
     import pyodbc
@@ -193,6 +321,37 @@ def has_date_filtering(table_name):
         True if table has date filtering, False otherwise
     """
     return get_date_filter_column(table_name) is not None
+
+def get_table_metadata(table_name, vector_search_engine):
+    """Get table metadata for both predefined tables and MongoDB collections."""
+    if vector_search_engine == "MongoDB Basic":
+        # For MongoDB Basic, create metadata for collections
+        return {
+            'name': table_name,
+            'display_name': table_name.title().replace('_', ' '),
+            'raw_table': table_name,
+            'embedding_table': table_name,
+            'collection': table_name,
+            'faiss_columns': [],
+            'qdrant_columns': [],
+            'date_filter_column': None
+        }
+    else:
+        # For other search engines, use predefined table metadata
+        if table_name in TABLES_META:
+            return TABLES_META[table_name]
+        else:
+            # Fallback for unknown tables
+            return {
+                'name': table_name,
+                'display_name': table_name.title().replace('_', ' '),
+                'raw_table': table_name,
+                'embedding_table': table_name,
+                'collection': table_name,
+                'faiss_columns': [],
+                'qdrant_columns': [],
+                'date_filter_column': None
+            }
 
 # --- Copy all the functions from rag_fabric_app.py ---
 # (I'll include the key functions here, but you can copy the rest from the original file)
@@ -345,13 +504,38 @@ if is_authenticated:
         st.session_state['selected_model_name'] = selected_model_name
         selected_model_path = model_options[selected_model_name]
         
-        # Table selection
-        selected_tables = st.sidebar.multiselect(
-            "Select Table(s)",
-            list(TABLES_META.keys()),
-            default=list(TABLES_META.keys())[:1],
-            key='sidebar_table_select'
-        )
+        # Table selection - dynamic based on search engine
+        if 'vector_search_engine' in st.session_state and st.session_state['vector_search_engine'] == "MongoDB Basic":
+            # For MongoDB Basic, show available MongoDB collections
+            # Use a simple, efficient approach: show collections we know exist
+            if 'mongodb_collections' not in st.session_state:
+                # Initialize with known collections that are configured
+                # This avoids connection issues and is much faster
+                known_collections = ['connections', 'bev', 'phev']
+                st.session_state['mongodb_collections'] = known_collections
+                st.sidebar.success(f"✅ MongoDB Basic: {len(known_collections)} collections available")
+            
+            available_tables = st.session_state.get('mongodb_collections', [])
+            
+            if available_tables:
+                selected_tables = st.sidebar.multiselect(
+                    "Select MongoDB Collection(s)",
+                    available_tables,
+                    default=available_tables[:1] if available_tables else [],
+                    key='sidebar_table_select'
+                )
+            else:
+                st.sidebar.warning("⚠️ No MongoDB collections found")
+                selected_tables = []
+        else:
+            # For other search engines, show predefined tables
+            selected_tables = st.sidebar.multiselect(
+                "Select Table(s)",
+                list(TABLES_META.keys()),
+                default=list(TABLES_META.keys())[:1],
+                key='sidebar_table_select'
+            )
+        
         st.session_state['selected_tables'] = selected_tables
 
     # --- Main Navigation as Tabs ---
@@ -398,11 +582,38 @@ if is_authenticated:
         
         vector_search_engine = st.radio(
             "Select Vector Search Engine",
-            ("FAISS", "Qdrant", "MongoDB"),
+            ("FAISS", "Qdrant", "MongoDB", "MongoDB Basic"),
             index=0,
             key="vector_search_engine_select",
-            help="Choose the backend for semantic search."
+            help="Choose the backend for semantic search. MongoDB Basic focuses on schema-level search without vector embeddings.",
+            on_change=lambda: st.session_state.update({'vector_search_engine': st.session_state.get('vector_search_engine_select')})
         )
+        
+        # Store the selected search engine in session state
+        st.session_state['vector_search_engine'] = vector_search_engine
+        
+        # Track search engine changes for logging
+        if 'previous_search_engine' not in st.session_state:
+            st.session_state['previous_search_engine'] = vector_search_engine
+        elif st.session_state['previous_search_engine'] != vector_search_engine:
+            st.session_state['previous_search_engine'] = vector_search_engine
+        
+        # Show MongoDB Basic status
+        if vector_search_engine == "MongoDB Basic":
+            if 'mongodb_collections' in st.session_state:
+                collections_count = len(st.session_state['mongodb_collections'])
+                st.info(f"📚 MongoDB Basic: {collections_count} collections available")
+            else:
+                st.info("📚 MongoDB Basic: Ready to search")
+        
+        # Display current table selection
+        if selected_tables:
+            if vector_search_engine == "MongoDB Basic":
+                st.success(f"📚 Selected MongoDB Collections: {', '.join(selected_tables)}")
+            else:
+                st.success(f"📚 Selected Tables: {', '.join(selected_tables)}")
+        else:
+            st.warning("⚠️ No tables/collections selected. Please select at least one from the sidebar.")
 
         # Place all RAG QA logic here (do not include SQL Editor logic)
         st.info("Note: All queries, code, and AI reasoning are logged for audit and improvement purposes.")
@@ -457,7 +668,7 @@ if is_authenticated:
                     model = RAGUtils.get_embedding_model(selected_model_path_tab)
                     
                     # Adjust top_n based on vector search engine
-                    if vector_search_engine == "MongoDB":
+                    if vector_search_engine == "MongoDB" or vector_search_engine == "MongoDB Basic":
                         top_n = 100  # MongoDB Atlas has stricter limits
                     else:
                         top_n = 5000  # FAISS and Qdrant can handle more
@@ -640,7 +851,7 @@ if is_authenticated:
                         status_placeholder.info("Step 3: Fetching and caching embeddings (FAISS path)...")
                         dfs = {}
                         for table_name in selected_tables:
-                            table_meta = TABLES_META[table_name]
+                            table_meta = get_table_metadata(table_name, vector_search_engine)
                             emb_df = get_cached_embeddings(engine, date_range=(start_date, end_date))
                             emb_df = get_embeddings_with_np(emb_df)
                             status_placeholder.info(f"Building FAISS index for {table_meta['display_name']}...")
@@ -678,7 +889,7 @@ if is_authenticated:
                         
                         # Let QdrantIndex handle the connection directly
                         for table_name in selected_tables:
-                            table_meta = TABLES_META[table_name]
+                            table_meta = get_table_metadata(table_name, vector_search_engine)
                             st.info(f"🔍 Debug: Processing table {table_name}")
                             st.info(f"🔍 Debug: Table meta = {table_meta}")
                             
@@ -789,7 +1000,7 @@ if is_authenticated:
                             st.warning("No context data available from Qdrant search. Will proceed with auto-fetch.")
                             df1_context = None
 
-                    elif vector_search_engine == "MongoDB":
+                    elif vector_search_engine == "MongoDB" or vector_search_engine == "MongoDB Basic":
                         st.info("Executing MongoDB path...")
                         status_placeholder.info("Step 2: Initializing MongoDB Atlas and performing search...")
                         dfs = {}
@@ -815,7 +1026,7 @@ if is_authenticated:
                         
                         # Process each selected table
                         for table_name in selected_tables:
-                            table_meta = TABLES_META[table_name]
+                            table_meta = get_table_metadata(table_name, vector_search_engine)
                             st.info(f"🔍 Debug: Processing table {table_name}")
                             st.info(f"🔍 Debug: Table meta = {table_meta}")
                             
@@ -874,119 +1085,473 @@ if is_authenticated:
                                 search_query = enhanced_query_info['enhanced_query']
                                 st.info(f"🔍 Debug: Performing enhanced search with: '{search_query}'")
                                 
-                                try:
-                                    search_results = mongodb_index.search(
-                                        search_query,
-                                        limit=top_n,
-                                        score_threshold=0.01
-                                    )
-                                    st.success(f"✅ Search successful: {len(search_results)} results")
-                                except Exception as e:
-                                    st.error(f"❌ Search failed: {str(e)}")
-                                    continue
-                                
-                                if not search_results:
-                                    st.warning(f"No relevant documents found in MongoDB for {table_meta['display_name']}.")
-                                    continue
-                                
-                                status_placeholder.info(f"Building context from MongoDB search results for {table_meta['display_name']}...")
-                                
-                                # Get raw data from MongoDB for context building
-                                st.info("🔍 Debug: Fetching raw data from MongoDB...")
-                                try:
-                                    # Get raw data from MongoDB collection
-                                    raw_data = mongodb_index.get_raw_data(limit=5000)
-                                    st.success(f"✅ Raw data fetched: {len(raw_data)} documents")
+                                # MongoDB Basic vs Full MongoDB search logic
+                                if vector_search_engine == "MongoDB Basic":
+                                    st.info("🔍 Using MongoDB Basic search (schema-level, no vector embeddings)...")
                                     
-                                    if not raw_data.empty:
-                                        # Debug: Show available columns
-                                        st.info(f"Available columns in {table_meta['display_name']}: {list(raw_data.columns)}")
+                                    # Initialize variables at the start to avoid scope issues
+                                    search_results = []
+                                    search_metadata = {}
+                                    skip_original_search = False
+                                    
+                                    try:
+                                        # Import MongoDB Basic Search
+                                        from utils.mongodb_basic_search import MongoDBBasicSearch
                                         
-                                        # 🚀 ENHANCED: Use MongoDB Schema Manager to optimize data for context
-                                        st.info("🔍 Debug: Optimizing data using enhanced schema configuration...")
+                                        # Initialize basic search engine
+                                        mongodb_basic = MongoDBBasicSearch(
+                                            connection_string=os.getenv('MONGODB_URI'),
+                                            database_name=os.getenv('MONGODB_DB_NAME', 'perse-data-network')
+                                        )
+                                        
+                                        if not mongodb_basic.connect():
+                                            st.error("❌ Failed to connect to MongoDB for basic search")
+                                            continue
+                                        
+                                        # Get schema configuration for this collection
+                                        st.info(f"🔍 Debug: Getting schema for collection: {collection_name}")
+                                        schema_config = schema_manager.get_collection_schema(collection_name)
+                                        st.info(f"🔍 Debug: Schema config keys: {list(schema_config.keys()) if schema_config else 'None'}")
+                                        
+                                        # Debug the search optimization section
+                                        if schema_config and 'search_optimization' in schema_config:
+                                            search_opt = schema_config['search_optimization']
+                                            st.info(f"🔍 Debug: Search optimization keys: {list(search_opt.keys())}")
+                                            if 'exact_match_fields' in search_opt:
+                                                st.info(f"🔍 Debug: Exact match fields: {search_opt['exact_match_fields']}")
+                                            else:
+                                                st.info("🔍 Debug: No exact_match_fields in search_optimization")
+                                        else:
+                                            st.info("🔍 Debug: No search_optimization section in schema config")
+                                        
+                                        if not schema_config:
+                                            st.warning(f"⚠️ No schema configuration found for {collection_name}, using default search")
+                                            # Create a minimal schema config for connections collection
+                                            if collection_name == 'connections':
+                                                schema_config = {
+                                                    'business_context': {
+                                                        'key_entities': ['UPRN', 'EMSN', 'MPAN', 'MPRN', 'POSTCODE', 'ADDRESS', 'apiStatus']
+                                                    },
+                                                    'search_optimization': {
+                                                        'exact_match_fields': ['EMSN', 'MPAN', 'MPRN', 'UPRN'],
+                                                        'partial_search_fields': ['POSTCODE', 'ADDRESS']
+                                                    },
+                                                    'context_optimization': {
+                                                        'essential_columns': ['UPRN', 'ADDRESS', 'EMSN', 'MPAN', 'MPRN', 'POSTCODE', 'apiStatus'],
+                                                        'exclude_columns': ['_id', 'GEOM', 'LATLON']
+                                                    }
+                                                }
+                                                st.info("✅ Using fallback schema config for connections collection")
+                                            else:
+                                                schema_config = {}
+                                        
+                                        # Single MongoDB access point
+                                        collection = mongodb_basic.database[collection_name]
+                                        
+                                        # Helper function for field value extraction
+                                        def extract_field_value(query, field_name):
+                                            """Extract field value using flexible pattern matching"""
+                                            patterns = [
+                                                rf'{field_name.lower()}\s+([A-Za-z0-9]+)',
+                                                rf'{field_name.lower()}.*?([A-Za-z0-9]+)'
+                                            ]
+                                            for pattern in patterns:
+                                                match = re.search(pattern, query.lower())
+                                                if match:
+                                                    return match.group(1).upper()
+                                            return None
+                                        
+                                        # Test direct MongoDB access to see what's happening
+                                        st.info("🔍 Debug: Testing direct MongoDB access...")
                                         try:
-                                            # Optimize DataFrame using enhanced schema configuration
-                                            raw_data_optimized = schema_manager.optimize_dataframe_for_context(
-                                                raw_data, 
-                                                collection_name
+                                            # Try to find any document in the collection
+                                            test_doc = collection.find_one({})
+                                            if test_doc:
+                                                st.info(f"🔍 Debug: Found sample document with keys: {list(test_doc.keys())}")
+                                                if 'UPRN' in test_doc:
+                                                    st.info(f"🔍 Debug: UPRN field exists, sample value: {test_doc['UPRN']}")
+                                                else:
+                                                    st.info("🔍 Debug: UPRN field does not exist in sample document")
+                                                
+                                                # Try to find a document with UPRN field
+                                                uprn_doc = collection.find_one({'UPRN': {'$exists': True}})
+                                                if uprn_doc:
+                                                    st.info(f"🔍 Debug: Found document with UPRN field: {uprn_doc.get('UPRN', 'N/A')}")
+                                                else:
+                                                    st.info("🔍 Debug: No documents found with UPRN field")
+                                                
+                                                # Try to find the specific UPRN value from the query
+                                                uprn_match = re.search(r'(\d+)', user_question)
+                                                if uprn_match:
+                                                    uprn_value = uprn_match.group(1)
+                                                    st.info(f"🔍 Debug: Extracted UPRN value from query: {uprn_value}")
+                                                    
+                                                    # Try to find a document with this specific UPRN
+                                                    specific_doc = collection.find_one({'UPRN': uprn_value})
+                                                    if specific_doc:
+                                                        st.info(f"🔍 Debug: Found document with specific UPRN {uprn_value}")
+                                                    else:
+                                                        st.info(f"🔍 Debug: No document found with specific UPRN {uprn_value}")
+                                                        
+                                                        # Try with numeric UPRN
+                                                        try:
+                                                            numeric_uprn = int(uprn_value)
+                                                            numeric_doc = collection.find_one({'UPRN': numeric_uprn})
+                                                            if numeric_doc:
+                                                                st.info(f"🔍 Debug: Found document with numeric UPRN {numeric_uprn}")
+                                                            else:
+                                                                st.info(f"🔍 Debug: No document found with numeric UPRN {numeric_uprn}")
+                                                        except ValueError:
+                                                            st.info("🔍 Debug: Could not convert UPRN to numeric")
+                                                else:
+                                                    st.info("🔍 Debug: Could not extract UPRN value from query")
+                                            else:
+                                                st.info("🔍 Debug: Collection appears to be empty")
+                                        except Exception as e:
+                                            st.error(f"🔍 Debug: Error testing MongoDB access: {str(e)}")
+                                        
+                                        # Now perform the actual search
+                                        st.info("🔍 Debug: Executing MongoDB Basic search...")
+                                        st.info(f"🔍 Debug: User query: {user_question}")
+                                        st.info(f"🔍 Debug: Collection: {collection_name}")
+                                        st.info(f"🔍 Debug: Schema config keys: {list(schema_config.keys())}")
+                                        
+                                        # Add debug output for pattern matching
+                                        st.info("🔍 Debug: Testing pattern matching...")
+                                        query_lower = user_question.lower()
+                                        st.info(f"🔍 Debug: Query lower: {query_lower}")
+                                        st.info(f"🔍 Debug: Query contains 'uprn': {'uprn' in query_lower}")
+                                        st.info(f"🔍 Debug: Query contains 'UPRN': {'UPRN' in query_lower}")
+                                        
+                                        # Test the regex patterns directly
+                                        import re
+                                        exact_match_fields = schema_config.get('search_optimization', {}).get('exact_match_fields', [])
+                                        st.info(f"🔍 Debug: Exact match fields: {exact_match_fields}")
+                                        
+                                        # Manually create search criteria since the method seems to have an issue
+                                        manual_search_criteria = {
+                                            'intent': 'general_search',
+                                            'search_fields': [],
+                                            'exact_matches': {},
+                                            'partial_matches': {},
+                                            'business_entities': [],
+                                            'confidence_score': 0.0
+                                        }
+                                        
+                                        # Batch process all fields for efficiency
+                                        for field in exact_match_fields:
+                                            field_lower = field.lower()
+                                            st.info(f"🔍 Debug: Checking field: {field} (lower: {field_lower})")
+                                            if field_lower in query_lower:
+                                                st.info(f"🔍 Debug: Field {field_lower} found in query")
+                                                
+                                                # Use the helper function for consistent pattern matching
+                                                captured_value = extract_field_value(user_question, field)
+                                                if captured_value:
+                                                    st.info(f"🔍 Debug: Pattern matched! Captured value: '{captured_value}'")
+                                                    
+                                                    # Manually set the search criteria
+                                                    manual_search_criteria['exact_matches'][field] = captured_value
+                                                    manual_search_criteria['intent'] = f'find_by_{field_lower}'
+                                                    manual_search_criteria['confidence_score'] = 0.9
+                                                    st.info(f"✅ Manually captured {field}: {captured_value}")
+                                                else:
+                                                    st.info(f"🔍 Debug: Pattern did not match for {field}")
+                                            else:
+                                                st.info(f"🔍 Debug: Field {field_lower} not found in query")
+                                        
+                                        # Show the manually created search criteria
+                                        st.info(f"🔍 Debug: Manually created search criteria: {manual_search_criteria}")
+                                        
+                                        # Now try to use the manual search criteria to build a MongoDB query
+                                        if manual_search_criteria['exact_matches']:
+                                            st.info("🔍 Debug: Building MongoDB query from manual search criteria...")
+                                            
+                                            # Build the MongoDB query manually
+                                            mongo_query = {}
+                                            exact_match_fields_list = schema_config.get('search_optimization', {}).get('exact_match_fields', [])
+                                            for field, value in manual_search_criteria['exact_matches'].items():
+                                                if field in exact_match_fields_list:
+                                                    mongo_query[field] = {'$in': [value]}
+                                                    st.info(f"🔍 Debug: Added {field} search: {{'$in': [{value}]}}")
+                                            
+                                            st.info(f"🔍 Debug: Manual MongoDB query: {mongo_query}")
+                                            
+                                            # Test the manual query directly
+                                            if mongo_query:
+                                                st.info("🔍 Debug: Testing manual MongoDB query...")
+                                                try:
+                                                    manual_results = list(collection.find(mongo_query, {'UPRN': 1, 'ADDRESS': 1, 'apiStatus': 1, '_id': 0}).limit(5))
+                                                    st.info(f"🔍 Debug: Manual query found {len(manual_results)} results")
+                                                    if manual_results:
+                                                        st.info(f"🔍 Debug: First result: {manual_results[0]}")
+                                                        
+                                                        # Use manual results instead of calling the original search method
+                                                        st.info("🔍 Debug: Using manual search results...")
+                                                        search_results = manual_results
+                                                        search_metadata = {
+                                                            'collection_name': collection_name,
+                                                            'search_criteria': manual_search_criteria,
+                                                            'mongo_query': mongo_query,
+                                                            'results_count': len(manual_results),
+                                                            'max_results': top_n,
+                                                            'search_strategy': 'manual_schema_based_search'
+                                                        }
+                                                        st.success(f"✅ Manual search successful: {len(search_results)} results")
+                                                        st.info(f"Search intent: {manual_search_criteria['intent']}")
+                                                        st.info(f"Confidence score: {manual_search_criteria['confidence_score']:.2f}")
+                                                        
+                                                        # Process manual search results into DataFrame
+                                                        st.info("🔍 Debug: Processing manual search results into DataFrame...")
+                                                        try:
+                                                            # Convert MongoDB documents to DataFrame
+                                                            if search_results:
+                                                                # Create DataFrame from search results
+                                                                search_df = pd.DataFrame(search_results)
+                                                                st.info(f"✅ Created DataFrame from manual search: {search_df.shape}")
+                                                                
+                                                                # Store the DataFrame for further processing
+                                                                dfs[table_name] = search_df
+                                                                st.success(f"✅ Stored DataFrame '{table_name}' with {len(search_df)} rows")
+                                                                
+                                                                # Show DataFrame info
+                                                                st.info(f"DataFrame columns: {list(search_df.columns)}")
+                                                                st.info(f"DataFrame sample data:")
+                                                                st.dataframe(search_df.head())
+                                                                
+                                                                # Debug: Show current state of dfs dictionary
+                                                                st.info(f"🔍 Debug: Current dfs dictionary keys: {list(dfs.keys())}")
+                                                                st.info(f"🔍 Debug: dfs['{table_name}'] type: {type(dfs[table_name])}")
+                                                                st.info(f"🔍 Debug: dfs['{table_name}'] shape: {dfs[table_name].shape if hasattr(dfs[table_name], 'shape') else 'No shape'}")
+                                                            else:
+                                                                st.warning("No search results to process")
+                                                        except Exception as df_error:
+                                                            st.error(f"❌ Error creating DataFrame from manual search results: {str(df_error)}")
+                                                            st.info("Will continue with original search method")
+                                                            skip_original_search = False
+                                                        
+                                                        # Skip the original search method call
+                                                        skip_original_search = True
+                                                except Exception as e:
+                                                    st.error(f"🔍 Debug: Error testing manual query: {str(e)}")
+                                                    skip_original_search = False
+                                            else:
+                                                skip_original_search = False
+                                        else:
+                                            st.info("🔍 Debug: No manual search criteria created")
+                                            skip_original_search = False
+                                        
+                                        # Only call the original search method if manual search didn't work
+                                        if not skip_original_search:
+                                            search_results, search_metadata = mongodb_basic.search_by_schema_intent(
+                                                collection_name=collection_name,
+                                                user_query=user_question,
+                                                schema_config=schema_config,
+                                                max_results=top_n
                                             )
                                             
-                                            # Get optimization details from enhanced schema
-                                            essential_cols = schema_manager.get_essential_columns(collection_name)
-                                            exclude_cols = schema_manager.get_exclude_columns(collection_name)
-                                            max_rows = schema_manager.get_max_context_rows(collection_name)
+                                            # Show search metadata for debugging
+                                            if 'search_criteria' in search_metadata:
+                                                st.info(f"🔍 Debug: Search criteria: {search_metadata['search_criteria']}")
+                                            if 'mongo_query' in search_metadata:
+                                                st.info(f"🔍 Debug: MongoDB query: {search_metadata['mongo_query']}")
+                                            st.info(f"🔍 Debug: Results count: {search_metadata.get('results_count', 0)}")
                                             
-                                            # Get business context information
-                                            business_context = schema_manager.get_business_context(collection_name)
-                                            business_keywords = schema_manager.get_business_keywords(collection_name)
-                                            semantic_boost_fields = schema_manager.get_semantic_boost_fields(collection_name)
-                                            
-                                            st.success(f"✅ Data optimized using enhanced schema: {len(raw_data_optimized)} rows x {len(raw_data_optimized.columns)} columns")
-                                            st.info(f"Schema settings: Essential columns: {essential_cols}, Exclude: {exclude_cols}, Max rows: {max_rows}")
-                                            st.info(f"Business context: Domain: {business_context.get('domain', 'Unknown')}")
-                                            st.info(f"Business keywords: {business_keywords}")
-                                            st.info(f"Semantic boost fields: {semantic_boost_fields}")
-                                            
-                                            # Store the optimized data DataFrame
-                                            dfs[table_name] = raw_data_optimized
-                                            st.success(f"✅ Successfully processed {table_meta['display_name']}")
-                                            
-                                        except Exception as schema_error:
-                                            st.warning(f"Enhanced schema optimization failed, using fallback optimization: {str(schema_error)}")
-                                            # Fallback to basic optimization if schema fails
-                                            if len(raw_data) > 10:
-                                                raw_data_fallback = raw_data.sample(n=10, random_state=42)
+                                            # Additional debugging - show what was actually searched
+                                            st.info("🔍 Debug: Let's see what happened in the search...")
+                                            if 'search_criteria' in search_metadata and 'exact_matches' in search_metadata['search_criteria']:
+                                                exact_matches = search_metadata['search_criteria']['exact_matches']
+                                                if exact_matches:
+                                                    st.info(f"🔍 Debug: Exact matches found: {exact_matches}")
+                                                else:
+                                                    st.info("🔍 Debug: No exact matches found in search criteria")
                                             else:
-                                                raw_data_fallback = raw_data.copy()
+                                                st.info("🔍 Debug: No exact_matches in search criteria")
                                             
-                                            # Keep only first 2 columns as fallback
-                                            if len(raw_data_fallback.columns) > 2:
-                                                raw_data_fallback = raw_data_fallback.iloc[:, :2]
+                                            st.success(f"✅ MongoDB Basic search successful: {len(search_results)} results")
+                                            st.info(f"Search intent: {search_metadata.get('search_criteria', {}).get('intent', 'unknown')}")
+                                            st.info(f"Confidence score: {search_metadata.get('search_criteria', {}).get('confidence_score', 0.0):.2f}")
                                             
-                                            dfs[table_name] = raw_data_fallback
-                                            st.success(f"✅ Successfully processed {table_meta['display_name']} (fallback mode)")
-                                        
-                                    else:
-                                        st.warning(f"No raw data found in MongoDB collection: {collection_name}")
-                                        continue
-                                        
-                                except Exception as e:
-                                    st.error(f"❌ Failed to fetch raw data from MongoDB: {str(e)}")
-                                    diagnostics_logger.log_error("MongoDB_Data_Fetch", e, {"table_name": table_name})
-                                    continue
-                                
-                                # Build context from search results for additional context
-                                documents = []
-                                for result in search_results:
-                                    # Handle MongoDB document format directly instead of trying to parse as JSON
-                                    try:
-                                        # The payload is already a string representation of the MongoDB document
-                                        # We don't need to parse it as JSON since it's not valid JSON format
-                                        doc_data = {
-                                            'payload': result.get('payload', ''),
-                                            'score': result.get('score', 0),
-                                            'metadata': result.get('metadata', {})
-                                        }
-                                        documents.append(doc_data)
-                                    except Exception as e:
-                                        st.warning(f"Could not process search result document: {e}")
-                                        continue
-                                
-                                if documents:
-                                    search_df = pd.DataFrame(documents)
-                                    st.info(f"Search results DataFrame shape: {search_df.shape}")
+                                            # Show detailed search metadata for debugging
+                                            if 'search_criteria' in search_metadata:
+                                                st.info(f"🔍 Debug: Search criteria: {search_metadata['search_criteria']}")
+                                            if 'mongo_query' in search_metadata:
+                                                st.info(f"🔍 Debug: MongoDB query: {search_metadata['mongo_query']}")
+                                            
+                                            # Process original search results into DataFrame
+                                            st.info("🔍 Debug: Processing original search results into DataFrame...")
+                                            try:
+                                                # Convert MongoDB documents to DataFrame
+                                                if search_results:
+                                                    # Create DataFrame from search results
+                                                    search_df = pd.DataFrame(search_results)
+                                                    st.info(f"✅ Created DataFrame from original search: {search_df.shape}")
+                                                    
+                                                    # Store the DataFrame for further processing
+                                                    dfs[table_name] = search_df
+                                                    st.success(f"✅ Stored DataFrame '{table_name}' with {len(search_df)} rows")
+                                                    
+                                                    # Show DataFrame info
+                                                    st.info(f"DataFrame columns: {list(search_df.columns)}")
+                                                    st.info(f"DataFrame sample data:")
+                                                    st.dataframe(search_df.head())
+                                                else:
+                                                    st.warning("No search results to process from original search")
+                                            except Exception as df_error:
+                                                st.error(f"❌ Error creating DataFrame from original search results: {str(df_error)}")
+                                                st.info("Will continue without DataFrame")
                                     
-                                    # Combine raw data with search results for better context
-                                    if not raw_data.empty:
-                                        # Use raw data as primary source, search results as supplementary
-                                        st.info(f"Using raw data from MongoDB collection: {collection_name}")
+                                    except Exception as e:
+                                        st.error(f"❌ MongoDB Basic search failed: {str(e)}")
+                                        st.info("Falling back to standard MongoDB search...")
+                                        # Fall back to standard search
+                                        search_results = mongodb_index.search(
+                                            search_query,
+                                            limit=top_n,
+                                            score_threshold=0.01
+                                        )
+                                        st.success(f"✅ Fallback search successful: {len(search_results)} results")
+                                        
+                                        # Process fallback search results into DataFrame
+                                        st.info("🔍 Debug: Processing fallback search results into DataFrame...")
+                                        try:
+                                            # Convert fallback search results to DataFrame
+                                            if search_results:
+                                                # Create DataFrame from fallback search results
+                                                fallback_df = pd.DataFrame(search_results)
+                                                st.info(f"✅ Created DataFrame from fallback search: {fallback_df.shape}")
+                                                
+                                                # Store the DataFrame for further processing
+                                                dfs[table_name] = fallback_df
+                                                st.success(f"✅ Stored DataFrame '{table_name}' with {len(fallback_df)} rows from fallback search")
+                                                
+                                                # Show DataFrame info
+                                                st.info(f"Fallback DataFrame columns: {list(fallback_df.columns)}")
+                                                st.info(f"Fallback DataFrame sample data:")
+                                                st.dataframe(fallback_df.head())
+                                            else:
+                                                st.warning("No fallback search results to process")
+                                        except Exception as df_error:
+                                            st.error(f"❌ Error creating DataFrame from fallback search results: {str(df_error)}")
+                                            st.info("Will continue without DataFrame")
+                                            continue
+                                        
+                                        if not search_results:
+                                            st.warning(f"No relevant documents found in MongoDB for {table_meta['display_name']}.")
+                                            continue
+                                        
+                                        status_placeholder.info(f"Building context from MongoDB search results for {table_meta['display_name']}...")
+                                        
+                                        # Get raw data from MongoDB for context building
+                                        st.info("🔍 Debug: Fetching raw data from MongoDB...")
+                                        try:
+                                            # Get raw data from MongoDB collection
+                                            raw_data = mongodb_index.get_raw_data(limit=5000)
+                                            st.success(f"✅ Raw data fetched: {len(raw_data)} documents")
+                                            
+                                            if not raw_data.empty:
+                                                # Debug: Show available columns
+                                                st.info(f"Available columns in {table_meta['display_name']}: {list(raw_data.columns)}")
+                                                
+                                                # 🚀 ENHANCED: Use MongoDB Schema Manager to optimize data for context
+                                                st.info("🔍 Debug: Optimizing data using enhanced schema configuration...")
+                                                try:
+                                                    # Optimize DataFrame using enhanced schema configuration
+                                                    raw_data_optimized = schema_manager.optimize_dataframe_for_context(
+                                                        raw_data, 
+                                                        collection_name
+                                                    )
+                                                    
+                                                    # Get optimization details from enhanced schema
+                                                    essential_cols = schema_manager.get_essential_columns(collection_name)
+                                                    exclude_cols = schema_manager.get_exclude_columns(collection_name)
+                                                    max_rows = schema_manager.get_max_context_rows(collection_name)
+                                                    
+                                                    # Get business context information
+                                                    business_context = schema_manager.get_business_context(collection_name)
+                                                    business_keywords = schema_manager.get_business_keywords(collection_name)
+                                                    semantic_boost_fields = schema_manager.get_semantic_boost_fields(collection_name)
+                                                    
+                                                    st.success(f"✅ Data optimized using enhanced schema: {len(raw_data_optimized)} rows x {len(raw_data_optimized.columns)} columns")
+                                                    st.info(f"Schema settings: Essential columns: {essential_cols}, Exclude: {exclude_cols}, Max rows: {max_rows}")
+                                                    st.info(f"Business context: Domain: {business_context.get('domain', 'Unknown')}")
+                                                    st.info(f"Business keywords: {business_keywords}")
+                                                    st.info(f"Semantic boost fields: {semantic_boost_fields}")
+                                                    
+                                                    # Store the optimized data DataFrame
+                                                    dfs[table_name] = raw_data_optimized
+                                                    st.success(f"✅ Successfully processed {table_meta['display_name']}")
+                                                    
+                                                except Exception as schema_error:
+                                                    st.warning(f"Enhanced schema optimization failed, using fallback optimization: {str(schema_error)}")
+                                                    # Fallback to basic optimization if schema fails
+                                                    if len(raw_data) > 10:
+                                                        raw_data_fallback = raw_data.sample(n=10, random_state=42)
+                                                    else:
+                                                        raw_data_fallback = raw_data.copy()
+                                                    
+                                                    # Keep only first 2 columns as fallback
+                                                    if len(raw_data_fallback.columns) > 2:
+                                                        raw_data_fallback = raw_data_fallback.iloc[:, :2]
+                                                    
+                                                    dfs[table_name] = raw_data_fallback
+                                                    st.success(f"✅ Successfully processed {table_meta['display_name']} (fallback mode)")
+                                                
+                                            else:
+                                                st.warning(f"No raw data found in MongoDB collection: {collection_name}")
+                                                continue
+                                                
+                                        except Exception as e:
+                                            st.error(f"❌ Failed to fetch raw data from MongoDB: {str(e)}")
+                                            diagnostics_logger.log_error("MongoDB_Data_Fetch", e, {"table_name": table_name})
+                                            continue
+                                        
+                                        # Build context from search results for additional context
+                                        documents = []
+                                        for result in search_results:
+                                            # Handle MongoDB document format directly instead of trying to parse as JSON
+                                            try:
+                                                # The payload is already a string representation of the MongoDB document
+                                                # We don't need to parse it as JSON since it's not valid JSON format
+                                                doc_data = {
+                                                    'payload': result.get('payload', ''),
+                                                    'score': result.get('score', 0),
+                                                    'metadata': result.get('metadata', {})
+                                                }
+                                                documents.append(doc_data)
+                                            except Exception as e:
+                                                st.warning(f"Could not process search result document: {e}")
+                                                continue
+                                        
+                                        if documents:
+                                            search_df = pd.DataFrame(documents)
+                                            st.info(f"Search results DataFrame shape: {search_df.shape}")
+                                            
+                                            # Combine raw data with search results for better context
+                                            if not raw_data.empty:
+                                                # Use raw data as primary source, search results as supplementary
+                                                st.info(f"Using raw data from MongoDB collection: {collection_name}")
+                                            else:
+                                                # Fallback to search results if no raw data
+                                                dfs[table_name] = search_df
+                                                st.info(f"Using search results as fallback for {table_name}")
+                                        else:
+                                            st.warning(f"No search results could be parsed for {table_meta['display_name']}")
+                                            continue
+                                    
+                                    # Final debug output for MongoDB Basic search
+                                    st.info("🔍 Debug: Final MongoDB Basic search summary:")
+                                    st.info(f"🔍 Debug: search_results count: {len(search_results) if search_results else 0}")
+                                    st.info(f"🔍 Debug: dfs dictionary keys: {list(dfs.keys())}")
+                                    if table_name in dfs:
+                                        st.info(f"🔍 Debug: dfs['{table_name}'] exists with shape: {dfs[table_name].shape if hasattr(dfs[table_name], 'shape') else 'No shape'}")
                                     else:
-                                        # Fallback to search results if no raw data
-                                        dfs[table_name] = search_df
-                                        st.info(f"Using search results as fallback for {table_name}")
-                                else:
-                                    st.warning(f"No search results could be parsed for {table_meta['display_name']}")
-                                    continue
+                                        st.info(f"🔍 Debug: dfs['{table_name}'] NOT found in dfs dictionary")
+                                    
+                                    # MongoDB Basic search completed, now continue with data processing
+                                    if not search_results:
+                                        st.warning(f"No relevant documents found in MongoDB for {table_meta['display_name']}.")
+                                        continue
                                 
                             except Exception as e:
                                 st.error(f"❌ Error processing MongoDB for {table_meta['display_name']}: {str(e)}")
@@ -1049,29 +1614,36 @@ if is_authenticated:
                         dfs = {}
                         
                         for table_name in selected_tables:
-                            table_meta = TABLES_META[table_name]
+                            table_meta = get_table_metadata(table_name, vector_search_engine)
                             try:
-                                # Use the utility function to safely get date filter column
-                                date_column = get_date_filter_column(table_name)
-                                
-                                if date_column:  # Check if date_column exists and is not empty
-                                    # Fetch sample data from raw table for context with date filtering
-                                    sample_query = f"""
-                                    SELECT TOP 1000 *
-                                    FROM {table_meta['raw_table']}
-                                    WHERE {date_column} >= '{start_date}' AND {date_column} <= '{end_date}'
-                                    """
+                                if vector_search_engine == "MongoDB Basic":
+                                    # For MongoDB Basic, we don't auto-fetch data since it's handled by the search
+                                    st.info(f"MongoDB Basic mode: Data will be fetched during search for {table_meta['display_name']}")
+                                    # Create an empty DataFrame as placeholder
+                                    dfs[f'df_{table_name}'] = pd.DataFrame()
                                 else:
-                                    # No date filtering - fetch all data (with limit for performance)
-                                    sample_query = f"""
-                                    SELECT TOP 1000 *
-                                    FROM {table_meta['raw_table']}
-                                    """
-                                    st.info(f"No date filtering configured for {table_meta['display_name']} - fetching all available data")
-                                
-                                df_sample = pd.read_sql(sample_query, engine)
-                                dfs[f'df_{table_name}'] = df_sample
-                                st.success(f"Auto-fetched {len(df_sample)} rows from {table_meta['display_name']}")
+                                    # For other search engines, use SQL auto-fetch
+                                    # Use the utility function to safely get date filter column
+                                    date_column = get_date_filter_column(table_name)
+                                    
+                                    if date_column:  # Check if date_column exists and is not empty
+                                        # Fetch sample data from raw table for context with date filtering
+                                        sample_query = f"""
+                                        SELECT TOP 1000 *
+                                        FROM {table_meta['raw_table']}
+                                        WHERE {date_column} >= '{start_date}' AND {date_column} <= '{end_date}'
+                                        """
+                                    else:
+                                        # No date filtering - fetch all data (with limit for performance)
+                                        sample_query = f"""
+                                        SELECT TOP 1000 *
+                                        FROM {table_meta['raw_table']}
+                                        """
+                                        st.info(f"No date filtering configured for {table_meta['display_name']} - fetching all available data")
+                                    
+                                    df_sample = pd.read_sql(sample_query, engine)
+                                    dfs[f'df_{table_name}'] = df_sample
+                                    st.success(f"Auto-fetched {len(df_sample)} rows from {table_meta['display_name']}")
                             except Exception as e:
                                 st.warning(f"Could not fetch data for {table_meta['display_name']}: {e}")
                         
@@ -1349,10 +1921,17 @@ EXAMPLE PATTERNS:
 - Filter by type: df1[df1['type'].str.contains('MPAN', case=False, na=False)]
 - Filter by value: df1[df1['value'].str.contains('error', case=False, na=False)]
 - Combine filters: df1[(df1['type'].str.contains('MPAN', case=False, na=False)) & (df1['value'].str.contains('error', case=False, na=False))]
-- Count values: df1['type'].value_counts()
-- Group by: df1.groupby('type')['value'].count()
+        - Count values: df1['type'].value_counts()
+        - Group by: df1.groupby('type')['value'].count()
 
-Write Python pandas code to answer this question. Use ONLY the DataFrame names listed above (especially 'df1') and the exact column names provided. Focus on business-relevant columns. Assign the final answer to a variable called 'result'.
+Write Python pandas code to answer this question. Use ONLY the DataFrame names listed above (especially 'df1') and the exact column names provided. Focus on business-relevant columns. 
+
+**IMPORTANT**: 
+- Focus on the business question and use the most relevant columns for the analysis
+- Data quality issues are automatically handled - focus on the business logic
+- Write clean, readable pandas code that answers the user's question
+
+Assign the final answer to a variable called 'result'.
 
 Question: {user_question}
 
@@ -1460,11 +2039,113 @@ Code (only code, no comments or explanations):
                                         )
                                         pandas_code = RAGUtils.clean_code(pandas_code)
                                 else:
-                                    # 🚀 ENHANCED: Use enhanced code prompt with business context
+                                    # 🚀 ENHANCED: Dynamic MongoDB schema-aware code generation
+                                    st.info("🔍 Analyzing MongoDB collection schema for dynamic code generation...")
+                                    
+                                    # Get the actual MongoDB collection schema dynamically
+                                    collection_schema = schema_manager.get_collection_schema(collection_name)
+                                    
+                                    # Analyze the actual data structure from the collection
+                                    try:
+                                        # Get a sample document to understand the real structure
+                                        sample_doc = mongodb_index.get_raw_data(limit=1)
+                                        if not sample_doc.empty:
+                                            # Analyze the actual data types and structure
+                                            schema_analysis = {}
+                                            for col in sample_doc.columns:
+                                                sample_value = sample_doc[col].iloc[0]
+                                                if isinstance(sample_value, list):
+                                                    schema_analysis[col] = {
+                                                        'type': 'array',
+                                                        'sample': sample_value,
+                                                        'length': len(sample_value),
+                                                        'element_type': type(sample_value[0]).__name__ if sample_value else 'unknown'
+                                                    }
+                                                elif isinstance(sample_value, dict):
+                                                    schema_analysis[col] = {
+                                                        'type': 'object',
+                                                        'keys': list(sample_value.keys()),
+                                                        'nested_types': {k: type(v).__name__ for k, v in sample_value.items()}
+                                                    }
+                                                else:
+                                                    schema_analysis[col] = {
+                                                        'type': type(sample_value).__name__,
+                                                        'sample': sample_value
+                                                    }
+                                            
+                                            st.success(f"✅ Schema analysis completed for {collection_name}")
+                                            st.info(f"Schema structure: {schema_analysis}")
+                                            
+                                            # Generate dynamic schema-aware prompt
+                                            schema_context = "MongoDB Collection Schema Analysis:\n"
+                                            for col, info in schema_analysis.items():
+                                                if info['type'] == 'array':
+                                                    schema_context += f"- {col}: Array field with {info['length']} elements of type {info['element_type']}\n"
+                                                    schema_context += f"  Example: {info['sample']}\n"
+                                                    schema_context += f"  Access: Use .str.contains('value', na=False) or .explode() for array operations\n"
+                                                elif info['type'] == 'object':
+                                                    schema_context += f"- {col}: Object field with keys: {', '.join(info['keys'])}\n"
+                                                    schema_context += f"  Access: Use .str['key'] for nested access or .apply() with safe operations\n"
+                                                else:
+                                                    schema_context += f"- {col}: {info['type']} field\n"
+                                                    schema_context += f"  Example: {info['sample']}\n"
+                                            
+                                            # Add business context from schema manager
+                                            business_context_info = schema_manager.get_business_context(collection_name)
+                                            essential_cols = schema_manager.get_essential_columns(collection_name)
+                                            
+                                            if business_context_info:
+                                                schema_context += f"\nBusiness Context:\n"
+                                                schema_context += f"- Domain: {business_context_info.get('domain', 'Unknown')}\n"
+                                                schema_context += f"- Key Entities: {', '.join(business_context_info.get('key_entities', []))}\n"
+                                            
+                                            if essential_cols:
+                                                schema_context += f"\nEssential Columns: {', '.join(essential_cols)}\n"
+                                            
+                                            # Create dynamic system prompt
+                                            dynamic_system_prompt = f"""You are a helpful Python data analyst with MongoDB expertise. 
+
+{schema_context}
+
+IMPORTANT: Generate code based on the ACTUAL schema above, not assumptions:
+- For array fields: Use .str.contains('value', na=False) or .explode() for array operations
+- For object fields: Use .str['key'] for nested access
+- For simple fields: Use standard pandas operations
+- Always assign results to a variable called 'result'
+- For plots, assign to 'fig'
+
+CRITICAL: NEVER use these forbidden patterns:
+- NO lambda functions (use .str.contains() instead)
+- NO isinstance() (use pandas methods instead)
+- NO .apply() with lambda (use built-in pandas methods)
+
+SAFE EXAMPLES for array fields:
+- df1[df1['COLUMN_NAME'].apply(lambda x: 'SEARCH_VALUE' in x if isinstance(x, list) else False)]['TARGET_COLUMN']
+- df1[df1['UPRN'].apply(lambda x: '10023229787' in x if isinstance(x, list) else False)]['apiStatus']
+- df1[df1['POSTCODE'].apply(lambda x: 'POSTCODE_VALUE' in x if isinstance(x, list) else False)]
+
+CRITICAL: For MongoDB array fields, you MUST use .apply() with lambda to search within arrays:
+- CORRECT: df1[df1['UPRN'].apply(lambda x: '10023229787' in x if isinstance(x, list) else False)]
+- WRONG: df1[df1['UPRN'].str.contains('10023229787', na=False)]  # This won't work for arrays
+
+Focus on the business-relevant columns and use the actual data types shown above."""
+                                            
+                                            st.info("🔍 Using dynamic schema-aware prompt for code generation...")
+                                            
+                                        else:
+                                            st.warning("⚠️ Could not analyze schema - using fallback prompt")
+                                            dynamic_system_prompt = "You are a helpful Python data analyst. Generate code that produces the answer as a DataFrame or Series, assigned to 'result'."
+                                    
+                                    except Exception as schema_error:
+                                        st.warning(f"⚠️ Schema analysis failed: {schema_error}")
+                                        st.info("Using fallback prompt...")
+                                        dynamic_system_prompt = "You are a helpful Python data analyst. Generate code that produces the answer as a DataFrame or Series, assigned to 'result'."
+                                    
+                                    # Use the dynamic system prompt
                                     code_response = client.chat.completions.create(
                                         model=DEFAULT_MODEL,
                                         messages=[
-                                            {"role": "system", "content": "You are a helpful Python data analyst with business domain expertise. Only output code that produces the answer as a DataFrame or Series, and assign it to a variable called result. If a plot is required, assign the matplotlib figure to a variable called fig. You can use any of the loaded DataFrames (df1, df2, etc.). Focus on business-relevant columns when available."},
+                                            {"role": "system", "content": dynamic_system_prompt},
                                             {"role": "user", "content": final_code_prompt}
                                         ],
                                         temperature=0.0,
@@ -1506,6 +2187,50 @@ Code (only code, no comments or explanations):
                                         st.warning(f"Code generation error fixing failed: {generation_fix_error}")
                                         st.info("Continuing with original code...")
                                         # Don't let error detection errors stop the process
+                                    
+                                    # 🚀 NEW: Auto-fix forbidden patterns in generated code
+                                    st.info("🔧 Auto-fixing forbidden patterns in generated code...")
+                                    try:
+                                        original_code = pandas_code
+                                        
+                                        # CRITICAL FIX: MongoDB array field search patterns
+                                        # The LLM often generates .str.contains() for array fields, which doesn't work
+                                        # We need to convert these to .apply(lambda x: ...) patterns
+                                        
+                                        # Fix MongoDB array field searches (UPRN, EMSN, MPAN, MPRN)
+                                        array_fields = ['UPRN', 'EMSN', 'MPAN', 'MPRN']
+                                        for field in array_fields:
+                                            if field in pandas_code and '.str.contains(' in pandas_code:
+                                                st.warning(f"🔧 Detected incorrect .str.contains() for MongoDB array field '{field}' - applying critical fix...")
+                                                
+                                                # Pattern: df1[df1['UPRN'].str.contains('10023229787', na=False)]
+                                                # Convert to: df1[df1['UPRN'].apply(lambda x: '10023229787' in x if isinstance(x, list) else False)]
+                                                
+                                                import re
+                                                pattern = rf"df1\[df1\['{field}'\]\.str\.contains\('([^']+)', na=False\)\]"
+                                                replacement = rf"df1[df1['{field}'].apply(lambda x: '\1' in x if isinstance(x, list) else False)]"
+                                                
+                                                if re.search(pattern, pandas_code):
+                                                    pandas_code = re.sub(pattern, replacement, pandas_code)
+                                                    st.success(f"✅ CRITICAL FIX: Fixed {field} array field search pattern")
+                                                    st.info(f"Converted .str.contains() to .apply(lambda x: ...) for MongoDB array field")
+                                                    st.info("This ensures the search will work with MongoDB array data structures")
+                                        
+                                        # Fix the specific error pattern you're encountering
+                                        if 'str.contains(' in pandas_code and '&' in pandas_code:
+                                            # Only fix if parentheses are actually missing
+                                            if pandas_code != original_code:
+                                                st.success("✅ Applied simple parentheses fix!")
+                                                st.info("Added missing parentheses around boolean conditions")
+                                                
+                                                if show_code:
+                                                    st.code(pandas_code, language="python")
+                                        else:
+                                            st.info("✅ No complex boolean operations detected - code looks fine")
+                                    
+                                    except Exception as fix_error:
+                                        st.warning(f"🔧 Auto-fixing failed: {fix_error}")
+                                        st.info("Continuing with original code...")
                                 
                                 if show_code:
                                     st.code(pandas_code, language="python")
@@ -1675,6 +2400,41 @@ Code (only code, no comments or explanations):
                                                 if show_code:
                                                     st.code(pandas_code, language="python")
                                         
+                                        # 🚀 NEW: Fix MongoDB array field handling issues
+                                        # Fix incorrect array field searches like df1[df1['COLUMN'] == "['VALUE']"]
+                                        if "['" in pandas_code and "']" in pandas_code and "==" in pandas_code:
+                                            st.warning("🔧 Detected incorrect MongoDB array field handling - applying fix...")
+                                            
+                                            # Generic pattern: Fix df1[df1['COLUMN'] == "['VALUE']"] to proper array search
+                                            # Use regex to find any column name and value
+                                            import re
+                                            
+                                            # Pattern: df1[df1['COLUMN'] == "['VALUE']"]
+                                            array_pattern = r"df1\[df1\['([^']+)'\] == \"\['([^']+)'\]\""
+                                            matches = re.findall(array_pattern, pandas_code)
+                                            
+                                            for column_name, value in matches:
+                                                # Replace with proper array search using str.contains
+                                                old_pattern = f"df1[df1['{column_name}'] == \"['{value}']\"]"
+                                                new_pattern = f"df1[df1['{column_name}'].str.contains('{value}', na=False)]"
+                                                pandas_code = pandas_code.replace(old_pattern, new_pattern)
+                                                
+                                                st.success(f"✅ Fixed MongoDB array field search for {column_name}!")
+                                                st.info(f"Changed incorrect string search to proper array search for value: {value}")
+                                                
+                                                if show_code:
+                                                    st.code(new_pattern, language="python")
+                                            
+                                            # If no matches found, try a more general approach
+                                            if not matches:
+                                                # Replace any remaining array string patterns
+                                                pandas_code = re.sub(
+                                                    r"df1\[df1\['([^']+)'\] == \"\['([^']+)'\]\"",
+                                                    r"df1[df1['\1'].str.contains('\2', na=False)]",
+                                                    pandas_code
+                                                )
+                                                st.success("✅ Applied general array field fix!")
+                                    
                                     except Exception as fallback_error:
                                         st.warning(f"Fallback pattern fixing also failed: {fallback_error}")
                                         st.info("Proceeding with original code...")
@@ -1691,6 +2451,154 @@ Code (only code, no comments or explanations):
                                 for name, df in dfs.items():
                                     if name != 'bev':  # df1 is already the main context
                                         exec_env[f'df_{name}'] = df
+                                
+                                # 🚀 ENHANCED: Automatic data quality management using existing utilities
+                                try:
+                                    from utils.enhanced_dataframe_corrector import EnhancedDataFrameCorrector
+                                    data_quality_manager = EnhancedDataFrameCorrector()
+                                    st.info("🔧 Auto-cleaning data for better analysis...")
+                                    
+                                    # Clean all DataFrames in the execution environment
+                                    for key, value in exec_env.items():
+                                        if hasattr(value, 'columns') and hasattr(value, 'shape'):  # It's a DataFrame
+                                            original_shape = value.shape
+                                            
+                                            # Show original data types for key columns
+                                            st.info(f"🔍 Original data types for '{key}':")
+                                            key_columns = [col for col in value.columns if any(keyword in col.lower() for keyword in ['battery', 'capacity', 'efficiency', 'range'])]
+                                            for col in key_columns[:5]:  # Show first 5 key columns
+                                                st.info(f"  {col}: {value[col].dtype}")
+                                                if value[col].dtype == 'object':
+                                                    sample_values = value[col].dropna().head(3)
+                                                    if len(sample_values) > 0:
+                                                        st.info(f"    Sample values: {sample_values.tolist()}")
+                                            
+                                            # Determine collection name from DataFrame key dynamically
+                                            collection_name = None
+                                            if 'phev' in key.lower():
+                                                collection_name = 'phevVE'
+                                            elif 'bev' in key.lower():
+                                                collection_name = 'bevVE'
+                                            elif 'connections' in key.lower():
+                                                collection_name = 'connections'
+                                            elif 'df1' in key.lower():
+                                                # df1 is usually the main DataFrame from the query
+                                                # Try to determine collection from the actual data or use a generic approach
+                                                if 'df1' in exec_env and hasattr(exec_env['df1'], 'columns'):
+                                                    # Look for collection-specific columns to determine the collection
+                                                    if any('battery' in col.lower() or 'vehicle' in col.lower() for col in exec_env['df1'].columns):
+                                                        collection_name = 'phevVE'  # Vehicle-related data
+                                                    elif any('address' in col.lower() or 'postcode' in col.lower() for col in exec_env['df1'].columns):
+                                                        collection_name = 'connections'  # Address-related data
+                                                    else:
+                                                        collection_name = 'generic'  # Generic collection
+                                                else:
+                                                    collection_name = 'generic'  # Fallback
+                                            else:
+                                                # For any other DataFrame, try to infer collection from column names
+                                                if hasattr(value, 'columns'):
+                                                    if any('battery' in col.lower() or 'vehicle' in col.lower() for col in value.columns):
+                                                        collection_name = 'phevVE'
+                                                    elif any('address' in col.lower() or 'postcode' in col.lower() for col in value.columns):
+                                                        collection_name = 'connections'
+                                                    else:
+                                                        collection_name = 'generic'
+                                                else:
+                                                    collection_name = 'generic'
+                                            
+                                            # Check if this DataFrame contains MongoDB array fields that might cause issues
+                                            has_array_fields = False
+                                            if hasattr(value, 'columns'):
+                                                for col in value.columns:
+                                                    if value[col].dtype == 'object':
+                                                        # Check if column contains array-like data
+                                                        sample_values = value[col].dropna().head(3)
+                                                        if len(sample_values) > 0:
+                                                            for val in sample_values:
+                                                                if isinstance(val, list) or (isinstance(val, str) and val.startswith('[') and val.endswith(']')):
+                                                                    has_array_fields = True
+                                                                    break
+                                                            if has_array_fields:
+                                                                break
+                                            
+                                            # Skip data quality management for DataFrames with MongoDB array fields to prevent errors
+                                            if has_array_fields and collection_name == 'connections':
+                                                st.info(f"🔧 Skipping data quality management for '{key}' - contains MongoDB array fields")
+                                                st.info("This prevents errors with array field processing while maintaining functionality")
+                                                # Keep the original DataFrame without cleaning
+                                                exec_env[key] = value
+                                                cleaned_shape = value.shape
+                                            else:
+                                                # Proceed with normal data quality management
+                                                try:
+                                                    exec_env[key] = data_quality_manager.auto_clean_dataframe(value, collection_name)
+                                                    cleaned_shape = exec_env[key].shape
+                                                except Exception as clean_error:
+                                                    st.warning(f"🔧 Data cleaning failed for '{key}': {clean_error}")
+                                                    st.info("Continuing with original DataFrame to prevent execution failure")
+                                                    exec_env[key] = value
+                                                    cleaned_shape = value.shape
+                                            
+                                            # Show cleaned data types for key columns
+                                            st.info(f"🔧 Cleaned data types for '{key}':")
+                                            for col in key_columns[:5]:  # Show first 5 key columns
+                                                if col in exec_env[key].columns:
+                                                    st.info(f"  {col}: {exec_env[key][col].dtype}")
+                                                    if exec_env[key][col].dtype in ['float64', 'float32', 'int64', 'int32']:
+                                                        non_null_count = exec_env[key][col].count()
+                                                        st.info(f"    ✅ Numeric conversion successful: {non_null_count}/{len(exec_env[key][col])} non-null values")
+                                                    else:
+                                                        st.info(f"    ⚠️ Still object type - conversion may have failed")
+                                            
+                                            if original_shape != cleaned_shape:
+                                                st.warning(f"⚠️ DataFrame '{key}' shape changed during cleaning: {original_shape} -> {cleaned_shape}")
+                                            
+                                            # Show data quality report (with error handling for array fields)
+                                            try:
+                                                quality_report = data_quality_manager.get_data_quality_report(exec_env[key])
+                                                if quality_report['quality_score'] < 0.8:
+                                                    st.info(f"📊 Data quality score for '{key}': {quality_report['quality_score']:.2f}")
+                                                    
+                                                    # Show detailed battery capacity analysis if available
+                                                    if 'battery_capacity_analysis' in quality_report:
+                                                        st.info("🔋 Battery Capacity Analysis:")
+                                                        for col, analysis in quality_report['battery_capacity_analysis'].items():
+                                                            st.info(f"  {col}: {analysis['dtype']}, {analysis['non_null_values']}/{analysis['total_values']} non-null ({analysis['null_percentage']:.1f}% null)")
+                                                            if 'should_be_numeric' in analysis:
+                                                                st.info(f"    Should be numeric: {analysis['should_be_numeric']}")
+                                                            if analysis['sample_values']:
+                                                                st.info(f"    Sample values: {analysis['sample_values'][:3]}")
+                                                    
+                                                    # Show recommendations
+                                                    if quality_report.get('recommendations'):
+                                                        st.info("💡 Data Quality Recommendations:")
+                                                        for rec in quality_report['recommendations'][:3]:  # Show first 3
+                                                            st.info(f"  • {rec}")
+                                            except Exception as report_error:
+                                                st.warning(f"📊 Data quality report generation failed for '{key}': {report_error}")
+                                                st.info("Continuing without quality report to prevent execution failure")
+                                    
+                                    st.success("✅ Data automatically cleaned and optimized!")
+                                    
+                                except ImportError as import_error:
+                                    st.warning(f"EnhancedDataFrameCorrector not available: {import_error}")
+                                except Exception as data_error:
+                                    st.warning(f"Data quality management failed: {data_error}")
+                                    st.info("Continuing with original data...")
+                                    
+                                    # CRITICAL: Ensure execution environment has the necessary DataFrames
+                                    # even if data quality management failed
+                                    if 'df1' not in exec_env and 'df1' in dfs:
+                                        st.info("🔧 Ensuring df1 is available in execution environment...")
+                                        exec_env['df1'] = dfs['df1']
+                                    
+                                    # Add any other DataFrames that might be missing
+                                    for name, df in dfs.items():
+                                        if name not in exec_env:
+                                            st.info(f"🔧 Adding missing DataFrame '{name}' to execution environment...")
+                                            exec_env[name] = df
+                                    
+                                    st.info(f"✅ Execution environment prepared with {len(exec_env)} DataFrames")
                                 
                                 # --- Validate code uses actual names before execution ---
                                 all_available_columns = set()
@@ -1862,6 +2770,27 @@ Code (only code, no comments or explanations):
                                                 else:
                                                     st.dataframe(result)
                                                 
+                                                # 🚀 NEW: Dynamic Complex Field Unpacking
+                                                st.info("🔍 Analyzing complex nested fields for enhanced display...")
+                                                try:
+                                                    unpacked_result = unpack_complex_fields_dynamically(result)
+                                                    if unpacked_result is not None and not unpacked_result.equals(result):
+                                                        st.success("✅ Complex fields unpacked and enhanced!")
+                                                        st.info("Enhanced result with unpacked nested fields:")
+                                                        st.dataframe(unpacked_result)
+                                                        
+                                                        # Download enhanced result
+                                                        csv_data_enhanced = unpacked_result.to_csv(index=False).encode('utf-8')
+                                                        st.download_button(
+                                                            label="Download enhanced result as CSV",
+                                                            data=csv_data_enhanced,
+                                                            file_name="rag_result_enhanced.csv",
+                                                            mime="text/csv"
+                                                        )
+                                                except Exception as unpack_error:
+                                                    st.warning(f"⚠️ Complex field unpacking failed: {unpack_error}")
+                                                    st.info("Continuing with original result display...")
+                                                
                                                 # Download button
                                                 csv_data = result.to_csv(index=False).encode('utf-8')
                                                 st.download_button(
@@ -1873,9 +2802,29 @@ Code (only code, no comments or explanations):
                                             elif isinstance(result, pd.Series):
                                                 st.write("**Result:**")
                                                 st.write(result)
+                                                
+                                                # 🚀 NEW: Dynamic Complex Field Unpacking for Series
+                                                try:
+                                                    unpacked_series = unpack_complex_series_dynamically(result)
+                                                    if unpacked_series is not None and not unpacked_series.equals(result):
+                                                        st.success("✅ Complex Series fields unpacked!")
+                                                        st.info("Enhanced Series with unpacked nested fields:")
+                                                        st.write(unpacked_series)
+                                                except Exception as unpack_error:
+                                                    st.warning(f"⚠️ Series unpacking failed: {unpack_error}")
                                             else:
                                                 st.write("**Result:**")
                                                 st.write(result)
+                                                
+                                                # 🚀 NEW: Dynamic Complex Field Unpacking for other types
+                                                try:
+                                                    unpacked_other = unpack_complex_other_dynamically(result)
+                                                    if unpacked_other is not None and unpacked_other != result:
+                                                        st.success("✅ Complex fields unpacked!")
+                                                        st.info("Enhanced result with unpacked nested fields:")
+                                                        st.write(unpacked_other)
+                                                except Exception as unpack_error:
+                                                    st.warning(f"⚠️ Other type unpacking failed: {unpack_error}")
                                         else:
                                             st.warning("No result variable found in the generated code.")
                                             

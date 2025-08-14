@@ -84,6 +84,7 @@ class MongoDBSchemaManager:
     def get_collection_schema(self, collection_name: str) -> Optional[Dict[str, Any]]:
         """
         Get the schema configuration for a specific collection.
+        Uses collection mapping to find the correct configuration.
         
         Args:
             collection_name: Name of the MongoDB collection
@@ -91,7 +92,33 @@ class MongoDBSchemaManager:
         Returns:
             Schema configuration dictionary or None if not found
         """
-        return self.schema_config.get('mongodb_collections', {}).get(collection_name)
+        # First try to get the schema directly
+        collections = self.schema_config.get('mongodb_collections', {})
+        print(f"🔍 Debug: Available collections: {list(collections.keys())}")
+        print(f"🔍 Debug: Looking for collection: {collection_name}")
+        
+        schema = collections.get(collection_name)
+        if schema:
+            print(f"✅ Found direct collection schema for: {collection_name}")
+            return schema
+        
+        # If not found, check for collection mapping
+        collections = self.schema_config.get('mongodb_collections', {})
+        for config_name, config in collections.items():
+            collection_mapping = config.get('collection_mapping', {})
+            if collection_mapping.get('system_name') == collection_name:
+                print(f"✅ Found collection mapping: {collection_name} -> {config_name}")
+                return config
+        
+        # If still not found, check global collection mappings
+        global_mappings = self.schema_config.get('global_settings', {}).get('collection_mappings', {})
+        if collection_name in global_mappings:
+            mapped_name = global_mappings[collection_name]
+            print(f"✅ Found global collection mapping: {collection_name} -> {mapped_name}")
+            return collections.get(mapped_name)
+        
+        print(f"⚠️ No schema found for collection: {collection_name}")
+        return None
     
     def get_qa_patterns(self, collection_name: str) -> List[Dict[str, Any]]:
         """
@@ -256,7 +283,10 @@ class MongoDBSchemaManager:
         """
         schema = self.get_collection_schema(collection_name)
         if schema and 'business_context' in schema:
-            return schema['business_context']
+            business_context = schema['business_context']
+            print(f"🔍 Debug: Found business context for {collection_name}: {business_context.get('domain', 'Unknown')}")
+            return business_context
+        print(f"⚠️ No business context found for {collection_name}")
         return {}
     
     def get_data_dictionary(self, collection_name: str) -> Dict[str, Any]:
@@ -286,7 +316,10 @@ class MongoDBSchemaManager:
         """
         schema = self.get_collection_schema(collection_name)
         if schema and 'context_optimization' in schema:
-            return schema['context_optimization'].get('essential_columns', [])
+            essential_cols = schema['context_optimization'].get('essential_columns', [])
+            print(f"🔍 Debug: Found {len(essential_cols)} essential columns for {collection_name}: {essential_cols}")
+            return essential_cols
+        print(f"⚠️ No essential columns found for {collection_name}")
         return []
     
     def get_exclude_columns(self, collection_name: str) -> List[str]:
@@ -424,9 +457,14 @@ class MongoDBSchemaManager:
         }
         
         try:
+            print(f"🔍 Debug: Looking for schema for collection: {collection_name}")
             schema = self.get_collection_schema(collection_name)
             if not schema:
+                print(f"⚠️ No schema found for collection: {collection_name}")
                 return default_enhanced_info
+            
+            print(f"✅ Found schema for collection: {collection_name}")
+            print(f"🔍 Schema keys: {list(schema.keys())}")
             
             business_context = self.get_business_context(collection_name)
             query_enhancement = schema.get('query_enhancement', {})
@@ -443,85 +481,91 @@ class MongoDBSchemaManager:
                 'qa_pattern_match': None,
                 'confidence_score': 0.0
             }
-        
-        # 🚀 ENHANCED: Q&A Pattern Matching
-        if query_enhancement.get('enable_qa_pattern_matching', False):
-            qa_pattern = self.match_qa_pattern(collection_name, user_query)
-            if qa_pattern:
-                enhanced_info['qa_pattern_match'] = qa_pattern
-                enhanced_info['confidence_score'] = qa_pattern.get('match_score', 0.0)
-                enhanced_info['detected_intent'].append(qa_pattern.get('answer_intent', ''))
-                
-                # Use expected columns from the pattern
-                expected_columns = qa_pattern.get('expected_columns', [])
-                if expected_columns:
-                    enhanced_info['relevant_columns'] = [
-                        {
-                            'name': col,
-                            'relevance': 'high',
-                            'business_meaning': f'Expected column for {qa_pattern.get("answer_intent", "")} intent',
-                            'keywords': []
-                        }
-                        for col in expected_columns
-                    ]
-                
-                # Use search strategy from the pattern
-                search_strategy = qa_pattern.get('search_strategy', '')
-                if search_strategy:
-                    enhanced_info['search_strategy'] = search_strategy
-        
-        # 🚀 ENHANCED: Intent Detection
-        if query_enhancement.get('enable_intent_detection', False):
-            intent_categories = self.get_intent_categories(collection_name)
-            for intent_name, intent_info in intent_categories.items():
-                keywords = intent_info.get('keywords', [])
-                if any(keyword.lower() in user_query.lower() for keyword in keywords):
-                    if intent_name not in enhanced_info['detected_intent']:
-                        enhanced_info['detected_intent'].append(intent_name)
-        
-        # Semantic expansion (existing logic)
-        if query_enhancement.get('enable_semantic_expansion', False):
-            patterns = query_enhancement.get('common_question_patterns', {})
-            aliases = query_enhancement.get('business_aliases', {})
             
-            # Detect intent patterns
-            for intent, keywords in patterns.items():
-                if any(keyword.lower() in user_query.lower() for keyword in keywords):
-                    if intent not in enhanced_info['detected_intent']:
-                        enhanced_info['detected_intent'].append(intent)
+            # 🚀 ENHANCED: Q&A Pattern Matching
+            if query_enhancement.get('enable_qa_pattern_matching', False):
+                print(f"🔍 Debug: Q&A pattern matching enabled for {collection_name}")
+                qa_pattern = self.match_qa_pattern(collection_name, user_query)
+                if qa_pattern:
+                    print(f"✅ Found Q&A pattern match: {qa_pattern.get('answer_intent', 'unknown')}")
+                    enhanced_info['qa_pattern_match'] = qa_pattern
+                    enhanced_info['confidence_score'] = qa_pattern.get('match_score', 0.0)
+                    enhanced_info['detected_intent'].append(qa_pattern.get('answer_intent', ''))
+                    
+                    # Use expected columns from the pattern
+                    expected_columns = qa_pattern.get('expected_columns', [])
+                    if expected_columns:
+                        enhanced_info['relevant_columns'] = [
+                            {
+                                'name': col,
+                                'relevance': 'high',
+                                'business_meaning': f'Expected column for {qa_pattern.get("answer_intent", "")} intent',
+                                'keywords': []
+                            }
+                            for col in expected_columns
+                        ]
+                    
+                    # Use search strategy from the pattern
+                    search_strategy = qa_pattern.get('search_strategy', '')
+                    if search_strategy:
+                        enhanced_info['search_strategy'] = search_strategy
+                else:
+                    print(f"⚠️ No Q&A pattern match found for query: {user_query}")
+            else:
+                print(f"⚠️ Q&A pattern matching disabled for {collection_name}")
             
-            # Apply semantic expansions
-            expanded_query = user_query
-            for business_term, synonyms in aliases.items():
-                if business_term.lower() in user_query.lower():
-                    enhanced_info['semantic_expansions'].extend(synonyms)
-                    # Add synonyms to query for better search
-                    for synonym in synonyms:
-                        if synonym.lower() not in expanded_query.lower():
-                            expanded_query += f" {synonym}"
+            # 🚀 ENHANCED: Intent Detection
+            if query_enhancement.get('enable_intent_detection', False):
+                intent_categories = self.get_intent_categories(collection_name)
+                for intent_name, intent_info in intent_categories.items():
+                    keywords = intent_info.get('keywords', [])
+                    if any(keyword.lower() in user_query.lower() for keyword in keywords):
+                        if intent_name not in enhanced_info['detected_intent']:
+                            enhanced_info['detected_intent'].append(intent_name)
             
-            enhanced_info['enhanced_query'] = expanded_query
-        
-        # Identify relevant columns based on query content
-        data_dict = self.get_data_dictionary(collection_name)
-        for column_name, column_info in data_dict.items():
-            if column_info.get('include_in_context', False):
-                # Check if column is relevant to the query
-                relevance = column_info.get('search_relevance', 'medium')
-                keywords = column_info.get('semantic_keywords', [])
+            # Semantic expansion (existing logic)
+            if query_enhancement.get('enable_semantic_expansion', False):
+                patterns = query_enhancement.get('common_question_patterns', {})
+                aliases = query_enhancement.get('business_aliases', {})
                 
-                # Check if query contains relevant keywords
-                query_lower = user_query.lower()
-                if any(keyword.lower() in query_lower for keyword in keywords):
-                    # Check if column is already in relevant_columns
-                    if not any(col['name'] == column_name for col in enhanced_info['relevant_columns']):
-                        enhanced_info['relevant_columns'].append({
-                            'name': column_name,
-                            'relevance': relevance,
-                            'business_meaning': column_info.get('business_meaning', ''),
-                            'keywords': keywords
-                        })
-        
+                # Detect intent patterns
+                for intent, keywords in patterns.items():
+                    if any(keyword.lower() in user_query.lower() for keyword in keywords):
+                        if intent not in enhanced_info['detected_intent']:
+                            enhanced_info['detected_intent'].append(intent)
+                
+                # Apply semantic expansions
+                expanded_query = user_query
+                for business_term, synonyms in aliases.items():
+                    if business_term.lower() in user_query.lower():
+                        enhanced_info['semantic_expansions'].extend(synonyms)
+                        # Add synonyms to query for better search
+                        for synonym in synonyms:
+                            if synonym.lower() not in expanded_query.lower():
+                                expanded_query += f" {synonym}"
+                
+                enhanced_info['enhanced_query'] = expanded_query
+            
+            # Identify relevant columns based on query content
+            data_dict = self.get_data_dictionary(collection_name)
+            for column_name, column_info in data_dict.items():
+                if column_info.get('include_in_context', False):
+                    # Check if column is relevant to the query
+                    relevance = column_info.get('search_relevance', 'medium')
+                    keywords = column_info.get('semantic_keywords', [])
+                    
+                    # Check if query contains relevant keywords
+                    query_lower = user_query.lower()
+                    if any(keyword.lower() in query_lower for keyword in keywords):
+                        # Check if column is already in relevant_columns
+                        if not any(col['name'] == column_name for col in enhanced_info['relevant_columns']):
+                            enhanced_info['relevant_columns'].append({
+                                'name': column_name,
+                                'relevance': relevance,
+                                'business_meaning': column_info.get('business_meaning', ''),
+                                'keywords': keywords
+                            })
+            
             # Determine search strategy
             if enhanced_info['detected_intent']:
                 enhanced_info['search_strategy'] = 'semantic_search'

@@ -39,4 +39,12 @@ tables:
     faiss_columns: [_id_oid, updatedAt_date. type, value, Results, embedding]
     qdrant_columns: [_id_oid, updatedAt_date. type, value, Results, embedding]
     date_filter_column: updatedAt_date
+  - name: connections
+    display_name: Connections
+    raw_table: connections
+    embedding_table: connections
+    collection: connections
+    faiss_columns: [UPRN, EMSN, MPAN, MPRN, POSTCODE, ADDRESS, apiStatus]
+    qdrant_columns: [UPRN, EMSN, MPAN, MPRN, POSTCODE, ADDRESS, apiStatus]
+    date_filter_column: 
 relationships:

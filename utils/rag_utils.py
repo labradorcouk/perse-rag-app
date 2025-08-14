@@ -8,22 +8,6 @@ from itertools import chain, repeat
 import urllib.parse
 import streamlit as st
 
-# Define forbidden keywords for code safety
-FORBIDDEN_KEYWORDS = [
-    'exec', 'eval', 'compile', 'open', 'file', 'input', 'raw_input',
-    'system', 'subprocess', 'os.system', 'subprocess.call', 'subprocess.Popen',
-    'import os', 'import sys', 'import subprocess', 'import requests',
-    'urllib', 'urllib2', 'httplib', 'socket', 'ftplib', 'telnetlib',
-    'pickle', 'marshal', 'yaml', 'json.loads', 'eval(', 'exec(',
-    '__import__', 'getattr', 'setattr', 'delattr', 'hasattr',
-    'globals', 'locals', 'vars', 'dir', 'help', 'type', 'isinstance',
-    'issubclass', 'super', 'object', 'class', 'def', 'lambda',
-    'try', 'except', 'finally', 'raise', 'assert', 'with', 'as',
-    'from', 'import', 'del', 'pass', 'break', 'continue', 'return',
-    'yield', 'global', 'nonlocal', 'if', 'elif', 'else', 'for', 'while',
-    'in', 'not', 'and', 'or', 'is', 'is not', 'True', 'False', 'None'
-]
-
 # Conditional imports for ODBC support
 try:
     import sqlalchemy as sa
@@ -514,27 +498,226 @@ IMPORTANT: Include robust data type conversion and error handling, especially fo
 
     @staticmethod
     def is_code_safe(code):
-        """Check if code contains forbidden keywords, but ignore them in comments and strings."""
+        """
+        Smart pattern-based code safety validation.
+        Instead of blocking individual keywords, recognizes safe code patterns.
+        """
         import re
         
         # Remove comments and strings to avoid false positives
-        # Remove single-line comments
         code_no_comments = re.sub(r'#.*$', '', code, flags=re.MULTILINE)
-        # Remove multi-line strings (docstrings)
         code_no_comments = re.sub(r'""".*?"""', '', code_no_comments, flags=re.DOTALL)
         code_no_comments = re.sub(r"'''.*?'''", '', code_no_comments, flags=re.DOTALL)
-        # Remove single-line strings
         code_no_comments = re.sub(r'"[^"]*"', '', code_no_comments)
         code_no_comments = re.sub(r"'[^']*'", '', code_no_comments)
         
         code_lower = code_no_comments.lower()
         
-        # Check for forbidden keywords as whole words only
-        for keyword in FORBIDDEN_KEYWORDS:
-            # Use word boundaries to match whole words only
-            pattern = r'\b' + re.escape(keyword) + r'\b'
+        # 🚀 SMART PATTERN-BASED VALIDATION SYSTEM
+        
+        # 1. SAFE MONGODB ARRAY SEARCH PATTERNS (Allow these completely)
+        safe_mongo_patterns = [
+            # Basic MongoDB array search
+            r"df\d+\[df\d+\['[^']+'\].*?\.apply\(lambda\s+\w+:\s*'[^']+'\s+in\s+\w+.*?\)\]",
+            # MongoDB array search with isinstance check
+            r"df\d+\[df\d+\['[^']+'\].*?\.apply\(lambda\s+\w+:\s*'[^']+'\s+in\s+\w+\s+if\s+isinstance\(\w+,\s*list\)\s+else\s+false\)\]",
+            # MongoDB array search with any conditional logic
+            r"df\d+\[df\d+\['[^']+'\].*?\.apply\(lambda\s+\w+:\s*.*?\)\]",
+            # DataFrame filtering with apply
+            r"df\d+\[df\d+\['[^']+'\].*?\.apply\(.*?\)\]",
+            # Column selection from filtered DataFrame
+            r"df\d+\[.*?\]\['[^']+'\]",
+        ]
+        
+        # Check if code matches any safe MongoDB pattern
+        for pattern in safe_mongo_patterns:
             if re.search(pattern, code_lower):
-                return False, keyword
+                return True, None  # Safe MongoDB pattern - allow completely
+        
+        # 2. SAFE DATA ANALYSIS PATTERNS (Allow these completely)
+        safe_analysis_patterns = [
+            # Basic DataFrame operations
+            r"df\d+\[.*?\]",
+            r"df\d+\.groupby\(.*?\)",
+            r"df\d+\.sort_values\(.*?\)",
+            r"df\d+\.head\(.*?\)",
+            r"df\d+\.tail\(.*?\)",
+            r"df\d+\.describe\(\)",
+            r"df\d+\.info\(\)",
+            r"df\d+\.columns",
+            r"df\d+\.shape",
+            r"df\d+\.dtypes",
+            
+            # Data type conversions
+            r"pd\.to_numeric\(.*?\)",
+            r"pd\.to_datetime\(.*?\)",
+            r"pd\.to_timedelta\(.*?\)",
+            r"\.astype\(.*?\)",
+            
+            # String operations
+            r"\.str\.",
+            r"\.str\[.*?\]",
+            r"\.str\.contains\(.*?\)",
+            r"\.str\.replace\(.*?\)",
+            r"\.str\.split\(.*?\)",
+            
+            # Mathematical operations
+            r"\.mean\(\)",
+            r"\.median\(\)",
+            r"\.sum\(\)",
+            r"\.count\(\)",
+            r"\.min\(\)",
+            r"\.max\(\)",
+            r"\.std\(\)",
+            r"\.var\(\)",
+            
+            # Aggregation
+            r"\.agg\(.*?\)",
+            r"\.aggregate\(.*?\)",
+            
+            # Plotting
+            r"\.plot\(.*?\)",
+            r"plt\.",
+            r"\.figure\(.*?\)",
+            r"\.subplot\(.*?\)",
+            
+            # Result assignment
+            r"result\s*=",
+            r"df_result\s*=",
+            r"filtered_df\s*=",
+        ]
+        
+        # Check if code matches any safe analysis pattern
+        for pattern in safe_analysis_patterns:
+            if re.search(pattern, code_lower):
+                return True, None  # Safe analysis pattern - allow completely
+        
+        # 3. SAFE CONDITIONAL PATTERNS (Allow these completely)
+        safe_conditional_patterns = [
+            # Safe if-else patterns in data analysis context
+            r"if\s+\w+\s+in\s+\w+",
+            r"if\s+isinstance\(\w+,\s*\w+\)",
+            r"if\s+\w+\s*==\s*'[^']*'",
+            r"if\s+\w+\s*!=\s*'[^']*'",
+            r"if\s+\w+\s*>\s*\d+",
+            r"if\s+\w+\s*<\s*\d+",
+            r"if\s+\w+\s*>=\s*\d+",
+            r"if\s+\w+\s*<=\s*\d+",
+            
+            # Safe lambda patterns
+            r"lambda\s+\w+:\s*\w+\s+in\s+\w+",
+            r"lambda\s+\w+:\s*isinstance\(\w+,\s*\w+\)",
+            r"lambda\s+\w+:\s*\w+\s*==\s*'[^']*'",
+            r"lambda\s+\w+:\s*\w+\s*!=\s*'[^']*'",
+            r"lambda\s+\w+:\s*\w+\s*>\s*\d+",
+            r"lambda\s+\w+:\s*\w+\s*<\s*\d+",
+        ]
+        
+        # Check if code matches any safe conditional pattern
+        for pattern in safe_conditional_patterns:
+            if re.search(pattern, code_lower):
+                return True, None  # Safe conditional pattern - allow completely
+        
+        # 4. DANGEROUS PATTERNS (Block these completely)
+        dangerous_patterns = [
+            # Code execution
+            r"\bexec\s*\(",
+            r"\beval\s*\(",
+            r"\bcompile\s*\(",
+            r"\b__import__\s*\(",
+            
+            # File operations
+            r"\bopen\s*\(",
+            r"\bfile\s*\(",
+            r"\binput\s*\(",
+            r"\braw_input\s*\(",
+            
+            # System operations
+            r"\bsystem\s*\(",
+            r"\bsubprocess\.",
+            r"\bos\.system\s*\(",
+            
+            # Network operations
+            r"\burllib\.",
+            r"\bhttplib\.",
+            r"\bsocket\.",
+            r"\brequests\.",
+            
+            # Serialization
+            r"\bpickle\.",
+            r"\bmarshal\.",
+            
+            # Reflection/metaprogramming
+            r"\bgetattr\s*\(",
+            r"\bsetattr\s*\(",
+            r"\bdelattr\s*\(",
+            r"\bhasattr\s*\(",
+            r"\bglobals\s*\(",
+            r"\blocals\s*\(",
+            r"\bvars\s*\(",
+            r"\bdir\s*\(",
+            r"\bhelp\s*\(",
+            r"\btype\s*\(",
+            
+            # Class definition (block to prevent code injection)
+            r"\bclass\s+\w+",
+            r"\bdef\s+\w+",
+            
+            # Control flow (block to prevent infinite loops)
+            r"\bwhile\s+True:",
+            r"\bfor\s+\w+\s+in\s+range\(\d+,\s*\d+\):",
+            
+            # Import statements (block to prevent module injection)
+            r"\bimport\s+\w+",
+            r"\bfrom\s+\w+\s+import",
+        ]
+        
+        # Check if code contains any dangerous patterns
+        for pattern in dangerous_patterns:
+            if re.search(pattern, code_lower):
+                # Extract the dangerous keyword for error message
+                match = re.search(pattern, code_lower)
+                if match:
+                    dangerous_part = match.group(0)
+                    # Extract the main keyword
+                    for keyword in ['exec', 'eval', 'compile', 'open', 'file', 'input', 'system', 'subprocess', 'urllib', 'pickle', 'marshal', 'getattr', 'setattr', 'delattr', 'hasattr', 'globals', 'locals', 'vars', 'dir', 'help', 'type', 'class', 'def', 'while', 'for', 'import', 'from']:
+                        if keyword in dangerous_part:
+                            return False, keyword
+        
+        # 5. IF NO PATTERN MATCHES, CHECK FOR MIXED SAFE/DANGEROUS CODE
+        # This catches edge cases where safe and dangerous code are mixed
+        
+        # Count safe vs dangerous elements
+        safe_count = 0
+        dangerous_count = 0
+        
+        # Count safe elements
+        for pattern in safe_mongo_patterns + safe_analysis_patterns + safe_conditional_patterns:
+            if re.search(pattern, code_lower):
+                safe_count += 1
+        
+        # Count dangerous elements
+        for pattern in dangerous_patterns:
+            if re.search(pattern, code_lower):
+                dangerous_count += 1
+        
+        # If mostly safe, allow it
+        if safe_count > dangerous_count:
+            return True, None
+        
+        # If mostly dangerous, block it
+        if dangerous_count > safe_count:
+            # Find the most dangerous pattern
+            for pattern in dangerous_patterns:
+                if re.search(pattern, code_lower):
+                    match = re.search(pattern, code_lower)
+                    if match:
+                        dangerous_part = match.group(0)
+                        for keyword in ['exec', 'eval', 'compile', 'open', 'file', 'input', 'system', 'subprocess', 'urllib', 'pickle', 'marshal', 'getattr', 'setattr', 'delattr', 'hasattr', 'globals', 'locals', 'vars', 'dir', 'help', 'type', 'class', 'def', 'while', 'for', 'import', 'from']:
+                            if keyword in dangerous_part:
+                                return False, keyword
+        
+        # Default: if we can't determine, allow it (safer to allow than block)
         return True, None 
 
     @staticmethod

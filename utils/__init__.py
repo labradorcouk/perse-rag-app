@@ -12,6 +12,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Import core utilities that are actually used by the main application
 from .mongodb_utils import MongoDBIndex
 from .mongodb_schema_manager import MongoDBSchemaManager
+from .mongodb_basic_search import MongoDBBasicSearch
 from .qdrant_utils import QdrantIndex
 from .dataframe_corrector import DataFrameCorrector
 from .enhanced_dataframe_corrector import EnhancedDataFrameCorrector
@@ -25,6 +26,7 @@ from .performance_optimizer import performance_optimizer
 __all__ = [
     'MongoDBIndex',
     'MongoDBSchemaManager',
+    'MongoDBBasicSearch',
     'QdrantIndex',
     'DataFrameCorrector',
     'EnhancedDataFrameCorrector',
